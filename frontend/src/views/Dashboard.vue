@@ -51,8 +51,22 @@
     </n-layout>
   </n-layout>
 
+  <!-- Mobile Bottom Tab Bar -->
+  <div class="mobile-tab-bar">
+    <div
+      v-for="tab in mobileTabs"
+      :key="tab.key"
+      class="tab-item"
+      :class="{ active: activeMenu === tab.key }"
+      @click="activeMenu = tab.key"
+    >
+      <span class="tab-icon">{{ tab.icon }}</span>
+      <span class="tab-label">{{ tab.label }}</span>
+    </div>
+  </div>
+
   <!-- Settings Drawer -->
-  <n-drawer v-model:show="showSettings" :width="420" placement="right">
+  <n-drawer v-model:show="showSettings" :width="drawerWidth" placement="right">
     <n-drawer-content closable>
       <template #header>
         <span class="drawer-title">设置</span>
@@ -80,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted } from 'vue'
+import { ref, h, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import {
@@ -120,6 +134,18 @@ const characterStore = useCharacterStore()
 const collapsed = ref(false)
 const activeMenu = ref('character')
 const showSettings = ref(false)
+const windowWidth = ref(window.innerWidth)
+
+const onResize = () => { windowWidth.value = window.innerWidth }
+const isMobile = computed(() => windowWidth.value <= 768)
+const drawerWidth = computed(() => isMobile.value ? '100%' : 420)
+
+const mobileTabs = [
+  { key: 'character', icon: '🎮', label: '角色' },
+  { key: 'task', icon: '✅', label: '任务' },
+  { key: 'shop', icon: '🛒', label: '商店' },
+  { key: 'timeline', icon: '📅', label: '时间线' }
+]
 
 const menuOptions: MenuOption[] = [
   {
@@ -175,11 +201,16 @@ const handleLogout = async () => {
 }
 
 onMounted(async () => {
+  window.addEventListener('resize', onResize)
   try {
     await characterStore.fetchCharacter()
   } catch (error) {
     console.error('Failed to fetch character:', error)
   }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize)
 })
 </script>
 
@@ -342,18 +373,81 @@ onMounted(async () => {
   }
 }
 
+/* Mobile Bottom Tab Bar */
+.mobile-tab-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: rgba(20, 20, 35, 0.98);
+  border-top: 1px solid rgba(255, 215, 0, 0.2);
+  z-index: 100;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  color: #808090;
+  cursor: pointer;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab-item.active {
+  color: #ffd700;
+}
+
+.tab-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.tab-label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
 @media (max-width: 768px) {
+  .mobile-tab-bar {
+    display: grid;
+  }
+
   .dashboard-header {
-    padding: 12px 16px;
-    height: auto;
+    padding: 8px 12px;
+    height: 48px;
   }
 
   .page-title {
-    font-size: 18px;
+    font-size: 16px;
+  }
+
+  .username {
+    display: none;
+  }
+
+  .settings-arrow {
+    display: none;
+  }
+
+  .header-avatar {
+    width: 30px;
+    height: 30px;
   }
 
   .sidebar {
     display: none;
+  }
+
+  .dashboard-content {
+    padding: 12px;
+    padding-bottom: 72px;
   }
 }
 </style>

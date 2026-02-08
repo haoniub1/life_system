@@ -414,10 +414,12 @@ onMounted(async () => {
 
   .code-display {
     font-size: 24px;
+    letter-spacing: 2px;
   }
 
   .steps-list {
     font-size: 14px;
+    padding-left: 16px;
   }
 }
 </style>

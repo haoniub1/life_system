@@ -11,8 +11,8 @@
       ref="formRef"
       :model="formData"
       :rules="rules"
-      label-placement="left"
-      label-width="120px"
+      :label-placement="labelPlacement"
+      :label-width="labelWidth"
     >
       <!-- Title -->
       <n-form-item label="标题" path="title">
@@ -226,7 +226,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import {
   NModal,
@@ -260,6 +260,10 @@ const message = useMessage()
 const formRef = ref<FormInst | null>(null)
 const submitting = ref(false)
 const showModal = ref(true)
+const windowWidth = ref(window.innerWidth)
+const onResize = () => { windowWidth.value = window.innerWidth }
+const labelPlacement = computed(() => windowWidth.value <= 768 ? 'top' : 'left')
+const labelWidth = computed(() => windowWidth.value <= 768 ? 'auto' : '120px')
 
 const formData = ref<any>({
   title: '',
@@ -284,6 +288,7 @@ const formData = ref<any>({
 })
 
 onMounted(() => {
+  window.addEventListener('resize', onResize)
   if (props.task) {
     formData.value = {
       title: props.task.title || '',
@@ -423,6 +428,10 @@ const handleSubmit = async () => {
   }
 }
 
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize)
+})
+
 const handleClose = () => {
   showModal.value = false
   emit('close')
@@ -532,6 +541,12 @@ const handleClose = () => {
 
   .stats-row {
     grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .section-title {
+    font-size: 13px;
+    margin: 12px 0 8px;
   }
 }
 </style>

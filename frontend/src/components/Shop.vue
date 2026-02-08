@@ -27,7 +27,7 @@
             <n-empty description="还没有商品，点击上方按钮创建" />
           </div>
 
-          <n-grid v-else cols="2 s:3 m:4 l:5" :x-gap="12" :y-gap="12" responsive="screen">
+          <n-grid v-else cols="1 s:2 m:3 l:4" :x-gap="12" :y-gap="12" responsive="screen">
             <n-grid-item v-for="item in shopItems" :key="item.id">
               <n-card class="shop-item-card" hoverable>
                 <div class="item-visual">
@@ -84,7 +84,7 @@
             </n-empty>
           </div>
 
-          <n-grid v-else cols="2 s:3 m:4 l:5" :x-gap="12" :y-gap="12" responsive="screen">
+          <n-grid v-else cols="1 s:2 m:3 l:4" :x-gap="12" :y-gap="12" responsive="screen">
             <n-grid-item v-for="item in inventoryItems" :key="item.id">
               <n-card class="inventory-item-card" hoverable>
                 <div class="item-visual">
@@ -569,5 +569,9 @@ onMounted(async () => {
   .item-footer { flex-direction: column; align-items: stretch; }
   .history-item { flex-direction: column; align-items: flex-start; gap: 8px; }
   .history-meta { align-items: flex-start; }
+  .action-bar { justify-content: stretch; }
+  .action-bar .n-button { width: 100%; }
+  .gold-amount { font-size: 20px; }
+  .item-name { font-size: 15px; }
 }
 </style>

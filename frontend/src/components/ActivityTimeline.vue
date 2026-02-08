@@ -312,12 +312,20 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .section-title {
+    font-size: 18px;
+  }
+
   .stat-icon {
     font-size: 24px;
   }
 
   .stat-value {
     font-size: 20px;
+  }
+
+  :deep(.n-timeline) {
+    padding-left: 8px;
   }
 }
 </style>

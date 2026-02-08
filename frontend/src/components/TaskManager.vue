@@ -534,19 +534,39 @@ onUnmounted(() => {
   .task-controls {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
   }
 
   .filter-section {
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+  }
+
+  .filter-group {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-label {
+    font-size: 12px;
+    white-space: nowrap;
   }
 
   .task-header {
     flex-direction: column;
+    gap: 8px;
+  }
+
+  .task-badges {
+    flex-wrap: wrap;
   }
 
   .deadline-badge {
     width: 100%;
+  }
+
+  .deadline-timer {
+    font-size: 12px;
   }
 }
 </style>

@@ -427,4 +427,50 @@ const getPowerColor = (power: number) => {
   margin-top: 16px;
   font-size: 14px;
 }
+
+@media (max-width: 768px) {
+  .stat-row {
+    grid-template-columns: 60px 1fr 70px;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .stat-label {
+    font-size: 13px;
+  }
+
+  .character-title {
+    font-size: 20px;
+  }
+
+  .level-badge {
+    padding: 4px 10px;
+  }
+
+  .level-number {
+    font-size: 13px;
+  }
+
+  .stat-card-value {
+    font-size: 20px;
+  }
+
+  .sleep-aid-section {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .gold-section {
+    padding: 10px;
+  }
+
+  .attribute-item {
+    padding: 8px;
+  }
+
+  .character-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+}
 </style>
