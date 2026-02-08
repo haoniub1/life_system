@@ -1,0 +1,14 @@
+Name: life-system
+Host: 0.0.0.0
+Port: 8081
+
+Database:
+  Path: ./data/life-system.db
+
+Auth:
+  Secret: "change-me-to-a-random-string-at-least-32-characters-long"
+  Expire: 604800  # 7 days in seconds
+
+Telegram:
+  BotToken: "8209537630:AAE3VBM9ldiqEJR4_IGYWLjiOp9C4LYZu1o"
+  Enabled: true

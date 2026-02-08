@@ -1,0 +1,26 @@
+# Dependencies
+frontend/node_modules/
+frontend/dist/
+
+# Go
+backend/life-system
+
+# Data
+data/*.db
+
+# Config (use config.example.yaml as template)
+backend/etc/config.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Old Next.js project files (to be cleaned up)
+node_modules/
+.next/

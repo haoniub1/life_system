@@ -1,0 +1,41 @@
+# Binaries
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build artifacts
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Database
+data/
+*.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Go
+*.o
+*.a
+go.sum
+
+# Project specific
+etc/config.yaml
