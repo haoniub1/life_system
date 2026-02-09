@@ -10,11 +10,13 @@ import (
 	"life-system-backend/internal/logic"
 	"life-system-backend/internal/model"
 	"life-system-backend/internal/svc"
+	"life-system-backend/pkg/bark"
 	"life-system-backend/pkg/telegram"
 )
 
 type Scheduler struct {
 	bot           *telegram.Bot
+	barkClient    *bark.Client
 	taskModel     *model.TaskModel
 	charModel     *model.CharacterModel
 	svcCtx        *svc.ServiceContext
@@ -31,6 +33,7 @@ func NewScheduler(bot *telegram.Bot, svcCtx *svc.ServiceContext, interval time.D
 
 	return &Scheduler{
 		bot:           bot,
+		barkClient:    svcCtx.BarkClient,
 		taskModel:     svcCtx.TaskModel,
 		charModel:     svcCtx.CharacterModel,
 		svcCtx:        svcCtx,
@@ -138,16 +141,33 @@ func (s *Scheduler) checkTasks() {
 			message := fmt.Sprintf("⏰ 提醒：任务「%s」还剩 %s 到期！%s",
 				task.Title, remainingStr, description)
 
-			// Create inline keyboard for quick actions
-			completeBtn := tgbotapi.NewInlineKeyboardButtonData("✅ 完成", fmt.Sprintf("complete:%d", task.ID))
-			deleteBtn := tgbotapi.NewInlineKeyboardButtonData("🗑 删除", fmt.Sprintf("delete:%d", task.ID))
-			keyboard := tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(completeBtn, deleteBtn),
-			)
+			// Send Telegram notification
+			if s.bot != nil && chatID > 0 {
+				// Create inline keyboard for quick actions
+				completeBtn := tgbotapi.NewInlineKeyboardButtonData("✅ 完成", fmt.Sprintf("complete:%d", task.ID))
+				deleteBtn := tgbotapi.NewInlineKeyboardButtonData("🗑 删除", fmt.Sprintf("delete:%d", task.ID))
+				keyboard := tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(completeBtn, deleteBtn),
+				)
 
-			if err := s.bot.SendMessageWithKeyboard(chatID, message, keyboard); err != nil {
-				log.Printf("Error sending reminder: %v", err)
-				continue
+				if err := s.bot.SendMessageWithKeyboard(chatID, message, keyboard); err != nil {
+					log.Printf("Error sending Telegram reminder: %v", err)
+				}
+			}
+
+			// Send Bark notification (alarm style - repeating sound)
+			if s.barkClient != nil {
+				user, err := s.svcCtx.UserModel.FindByID(task.UserID)
+				if err == nil && user != nil && user.BarkKey != "" {
+					barkTitle := fmt.Sprintf("⏰ 任务提醒 - 还剩%s", remainingStr)
+					barkBody := task.Title
+					if task.Description != "" {
+						barkBody = fmt.Sprintf("%s\n%s", task.Title, task.Description)
+					}
+					if err := s.barkClient.PushAlarm(user.BarkKey, barkTitle, barkBody); err != nil {
+						log.Printf("Error sending Bark reminder: %v", err)
+					}
+				}
 			}
 
 			if err := s.taskModel.UpdateLastReminded(task.ID, now); err != nil {

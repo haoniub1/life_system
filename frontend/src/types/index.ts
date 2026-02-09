@@ -122,6 +122,11 @@ export interface TgStatus {
   tgChatId: number
 }
 
+export interface BarkStatus {
+  enabled: boolean
+  barkKey: string  // Masked key (first 8 chars + ***)
+}
+
 export interface CompleteTaskResult {
   task: Task
   character: CharacterStats

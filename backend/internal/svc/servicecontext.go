@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"life-system-backend/internal/config"
 	"life-system-backend/internal/model"
+	"life-system-backend/pkg/bark"
 	"life-system-backend/pkg/telegram"
 )
 
@@ -16,9 +17,16 @@ type ServiceContext struct {
 	SleepModel     *model.SleepModel
 	ShopModel      *model.ShopModel
 	TelegramBot    *telegram.Bot
+	BarkClient     *bark.Client
 }
 
 func NewServiceContext(cfg config.Config, db *sql.DB, bot *telegram.Bot) *ServiceContext {
+	// Initialize Bark client if enabled
+	var barkClient *bark.Client
+	if cfg.Bark.Enabled && cfg.Bark.ServerURL != "" {
+		barkClient = bark.NewClient(cfg.Bark.ServerURL)
+	}
+
 	ctx := &ServiceContext{
 		Config:         cfg,
 		DB:             db,
@@ -28,6 +36,7 @@ func NewServiceContext(cfg config.Config, db *sql.DB, bot *telegram.Bot) *Servic
 		SleepModel:     model.NewSleepModel(db),
 		ShopModel:      model.NewShopModel(db),
 		TelegramBot:    bot,
+		BarkClient:     barkClient,
 	}
 
 	// Set the service context reference in the bot to avoid circular import

@@ -210,6 +210,7 @@ func applySchemaUpdates(db *sql.DB) error {
 		{"character_stats.last_energy_reset", "ALTER TABLE character_stats ADD COLUMN last_energy_reset TEXT DEFAULT ''"},
 		{"tasks.cost_mental", "ALTER TABLE tasks ADD COLUMN cost_mental INTEGER DEFAULT 0"},
 		{"tasks.cost_physical", "ALTER TABLE tasks ADD COLUMN cost_physical INTEGER DEFAULT 0"},
+		{"users.bark_key", "ALTER TABLE users ADD COLUMN bark_key TEXT DEFAULT ''"},
 	}
 
 	for _, u := range updates {

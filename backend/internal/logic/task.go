@@ -60,6 +60,18 @@ func (l *TaskLogic) CreateTask(ctx context.Context, userID int64, req *types.Cre
 		taskType = "once"
 	}
 
+	// 对于挑战任务，如果没设置惩罚值，默认使用奖励值
+	penaltyExp := req.PenaltyExp
+	penaltyGold := req.PenaltyGold
+	if taskType == "challenge" {
+		if penaltyExp == 0 {
+			penaltyExp = req.RewardExp
+		}
+		if penaltyGold == 0 {
+			penaltyGold = req.RewardGold
+		}
+	}
+
 	task := &model.Task{
 		UserID:             userID,
 		Title:              req.Title,
@@ -74,8 +86,8 @@ func (l *TaskLogic) CreateTask(ctx context.Context, userID int64, req *types.Cre
 		RewardIntelligence: req.RewardIntelligence,
 		RewardVitality:     req.RewardVitality,
 		RewardSpirit:       req.RewardSpirit,
-		PenaltyExp:         req.PenaltyExp,
-		PenaltyGold:        req.PenaltyGold,
+		PenaltyExp:         penaltyExp,
+		PenaltyGold:        penaltyGold,
 		DailyLimit:         req.DailyLimit,
 		TotalLimit:         req.TotalLimit,
 		RemindBefore:       req.RemindBefore,

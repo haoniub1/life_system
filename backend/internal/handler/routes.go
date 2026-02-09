@@ -121,6 +121,27 @@ func RegisterRoutes(server *rest.Server, svcCtx *svc.ServiceContext) {
 				Path:    "/api/telegram/unbind",
 				Handler: authMiddleware(UnbindTelegramHandler(svcCtx)),
 			},
+			// Bark Push Notification
+			{
+				Method:  "PUT",
+				Path:    "/api/bark/key",
+				Handler: authMiddleware(SetBarkKeyHandler(svcCtx)),
+			},
+			{
+				Method:  "GET",
+				Path:    "/api/bark/status",
+				Handler: authMiddleware(GetBarkStatusHandler(svcCtx)),
+			},
+			{
+				Method:  "POST",
+				Path:    "/api/bark/test",
+				Handler: authMiddleware(TestBarkHandler(svcCtx)),
+			},
+			{
+				Method:  "DELETE",
+				Path:    "/api/bark/key",
+				Handler: authMiddleware(DeleteBarkKeyHandler(svcCtx)),
+			},
 			// Timeline
 			{
 				Method:  "GET",

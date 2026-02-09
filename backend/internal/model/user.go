@@ -15,6 +15,7 @@ type User struct {
 	TgUsername   string
 	TgBindCode   string
 	TgBindExpire sql.NullTime
+	BarkKey      string // Bark push notification device key
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -30,12 +31,12 @@ func NewUserModel(db *sql.DB) *UserModel {
 func (m *UserModel) FindByUsername(username string) (*User, error) {
 	var user User
 	err := m.db.QueryRow(`
-		SELECT id, username, password_hash, display_name, avatar, tg_chat_id, tg_username, tg_bind_code, tg_bind_expire, created_at, updated_at
+		SELECT id, username, password_hash, display_name, avatar, tg_chat_id, tg_username, tg_bind_code, tg_bind_expire, bark_key, created_at, updated_at
 		FROM users WHERE username = ?
 	`, username).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.Avatar,
 		&user.TgChatID, &user.TgUsername, &user.TgBindCode, &user.TgBindExpire,
-		&user.CreatedAt, &user.UpdatedAt,
+		&user.BarkKey, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err != nil {
@@ -51,12 +52,12 @@ func (m *UserModel) FindByUsername(username string) (*User, error) {
 func (m *UserModel) FindByID(id int64) (*User, error) {
 	var user User
 	err := m.db.QueryRow(`
-		SELECT id, username, password_hash, display_name, avatar, tg_chat_id, tg_username, tg_bind_code, tg_bind_expire, created_at, updated_at
+		SELECT id, username, password_hash, display_name, avatar, tg_chat_id, tg_username, tg_bind_code, tg_bind_expire, bark_key, created_at, updated_at
 		FROM users WHERE id = ?
 	`, id).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.Avatar,
 		&user.TgChatID, &user.TgUsername, &user.TgBindCode, &user.TgBindExpire,
-		&user.CreatedAt, &user.UpdatedAt,
+		&user.BarkKey, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err != nil {
@@ -72,12 +73,12 @@ func (m *UserModel) FindByID(id int64) (*User, error) {
 func (m *UserModel) FindByTgChatID(chatID int64) (*User, error) {
 	var user User
 	err := m.db.QueryRow(`
-		SELECT id, username, password_hash, display_name, avatar, tg_chat_id, tg_username, tg_bind_code, tg_bind_expire, created_at, updated_at
+		SELECT id, username, password_hash, display_name, avatar, tg_chat_id, tg_username, tg_bind_code, tg_bind_expire, bark_key, created_at, updated_at
 		FROM users WHERE tg_chat_id = ?
 	`, chatID).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.Avatar,
 		&user.TgChatID, &user.TgUsername, &user.TgBindCode, &user.TgBindExpire,
-		&user.CreatedAt, &user.UpdatedAt,
+		&user.BarkKey, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err != nil {
@@ -126,12 +127,12 @@ func (m *UserModel) SetBindCode(userID int64, code string, expire time.Time) err
 func (m *UserModel) FindByBindCode(code string) (*User, error) {
 	var user User
 	err := m.db.QueryRow(`
-		SELECT id, username, password_hash, display_name, avatar, tg_chat_id, tg_username, tg_bind_code, tg_bind_expire, created_at, updated_at
+		SELECT id, username, password_hash, display_name, avatar, tg_chat_id, tg_username, tg_bind_code, tg_bind_expire, bark_key, created_at, updated_at
 		FROM users WHERE tg_bind_code = ? AND tg_bind_expire > datetime('now')
 	`, code).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.Avatar,
 		&user.TgChatID, &user.TgUsername, &user.TgBindCode, &user.TgBindExpire,
-		&user.CreatedAt, &user.UpdatedAt,
+		&user.BarkKey, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err != nil {
@@ -169,4 +170,22 @@ func (m *UserModel) UpdatePassword(userID int64, newPasswordHash string) error {
 	`, newPasswordHash, userID)
 
 	return err
+}
+
+func (m *UserModel) UpdateBarkKey(userID int64, barkKey string) error {
+	_, err := m.db.Exec(`
+		UPDATE users SET bark_key = ?, updated_at = datetime('now')
+		WHERE id = ?
+	`, barkKey, userID)
+
+	return err
+}
+
+func (m *UserModel) GetBarkKey(userID int64) (string, error) {
+	var barkKey string
+	err := m.db.QueryRow(`SELECT bark_key FROM users WHERE id = ?`, userID).Scan(&barkKey)
+	if err != nil {
+		return "", err
+	}
+	return barkKey, nil
 }

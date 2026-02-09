@@ -79,6 +79,9 @@
         <n-tab-pane name="telegram" tab="Telegram">
           <telegram-bind />
         </n-tab-pane>
+        <n-tab-pane name="bark" tab="Bark 推送">
+          <bark-bind />
+        </n-tab-pane>
         <n-tab-pane name="password" tab="修改密码">
           <password-form />
         </n-tab-pane>
@@ -121,6 +124,7 @@ import { useCharacterStore } from '@/stores/character'
 import CharacterCard from '@/components/CharacterCard.vue'
 import TaskManager from '@/components/TaskManager.vue'
 import TelegramBind from '@/components/TelegramBind.vue'
+import BarkBind from '@/components/BarkBind.vue'
 import Shop from '@/components/Shop.vue'
 import ActivityTimeline from '@/components/ActivityTimeline.vue'
 import UserProfile from '@/components/UserProfile.vue'

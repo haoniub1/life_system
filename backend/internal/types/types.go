@@ -158,6 +158,21 @@ type TgStatusResp struct {
 	TgChatID   int64  `json:"tgChatId"`
 }
 
+// Bark Push Notification
+type SetBarkKeyReq struct {
+	BarkKey string `json:"barkKey"`
+}
+
+type BarkStatusResp struct {
+	Enabled bool   `json:"enabled"`
+	BarkKey string `json:"barkKey"` // Masked for security
+}
+
+type TestBarkReq struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
+
 // Sleep
 type RecordSleepReq struct {
 	SleepStart string `json:"sleepStart"` // ISO8601 format

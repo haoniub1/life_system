@@ -7,6 +7,7 @@ type Config struct {
 	Database DatabaseConfig
 	Auth     AuthConfig
 	Telegram TelegramConfig
+	Bark     BarkConfig
 }
 
 type DatabaseConfig struct {
@@ -21,4 +22,9 @@ type AuthConfig struct {
 type TelegramConfig struct {
 	BotToken string
 	Enabled  bool
+}
+
+type BarkConfig struct {
+	Enabled   bool
+	ServerURL string // e.g., "https://api.day.app" or self-hosted URL
 }
