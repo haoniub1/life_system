@@ -3,154 +3,95 @@
     <div class="task-controls">
       <div class="filter-section">
         <div class="filter-group">
-          <span class="filter-label">任务类型:</span>
           <n-radio-group v-model:value="typeFilter" size="small">
             <n-radio-button value="">全部</n-radio-button>
             <n-radio-button value="once">一次性</n-radio-button>
-            <n-radio-button value="repeatable">可重复</n-radio-button>
+            <n-radio-button value="repeatable">重复</n-radio-button>
             <n-radio-button value="challenge">挑战</n-radio-button>
           </n-radio-group>
         </div>
 
         <div class="filter-group">
-          <span class="filter-label">状态:</span>
           <n-radio-group v-model:value="statusFilter" size="small">
-            <n-radio-button value="">全部</n-radio-button>
             <n-radio-button value="active">进行中</n-radio-button>
             <n-radio-button value="completed">已完成</n-radio-button>
-            <n-radio-button value="failed">已失败</n-radio-button>
-            <n-radio-button value="deleted">已删除</n-radio-button>
+            <n-radio-button value="">全部</n-radio-button>
           </n-radio-group>
         </div>
       </div>
 
-      <n-button type="primary" @click="showCreateForm = true">
-        + 新建任务
+      <n-button type="primary" size="small" @click="showCreateForm = true">
+        + 新建
       </n-button>
     </div>
 
-    <!-- Tasks List -->
+    <!-- Compact Tasks List -->
     <div v-if="filteredTasks.length > 0" class="tasks-list">
-      <transition-group name="task" tag="div">
-        <div
-          v-for="task in filteredTasks"
-          :key="task.id"
-          class="task-card"
-        >
-          <n-card :segmented="{ content: 'hard', footer: 'soft' }">
-            <template #header>
-              <div class="task-header">
-                <div class="task-header-left">
-                  <h3 class="task-title">{{ task.title }}</h3>
-                  <div class="task-badges">
-                    <n-tag type="info" :bordered="false" size="small">
-                      {{ getTaskTypeName(task.type) }}
-                    </n-tag>
-                    <n-tag :type="getStatusType(task.status)" :bordered="false" size="small">
-                      {{ getStatusName(task.status) }}
-                    </n-tag>
-                  </div>
-                </div>
-                <div v-if="task.type === 'challenge' && task.deadline" class="deadline-badge">
-                  <span
-                    class="deadline-timer"
-                    :style="getDeadlineStyle(task.deadline)"
-                  >
-                    ⏱ {{ formatTimeRemaining(task.deadline) }}
-                  </span>
-                </div>
-              </div>
-            </template>
-
-            <div class="task-content">
-              <p v-if="task.description" class="task-description">{{ task.description }}</p>
-
-              <div class="task-meta">
-                <span v-if="task.category" class="meta-item">
-                  📁 {{ task.category }}
-                </span>
-                <span v-if="task.type === 'repeatable' && task.totalLimit" class="meta-item">
-                  🔄 {{ task.completedCount }}/{{ task.totalLimit }}
-                </span>
-              </div>
-
-              <!-- Rewards Section -->
-              <div v-if="hasRewards(task)" class="rewards-section">
-                <div class="section-title">奖励</div>
-                <n-space>
-                  <n-tag v-if="task.rewardExp" type="success" :bordered="false">
-                    💫 经验: {{ task.rewardExp }}
-                  </n-tag>
-                  <n-tag v-if="task.rewardGold" type="warning" :bordered="false">
-                    🪙 金币: {{ task.rewardGold }}
-                  </n-tag>
-                  <n-tag v-if="task.rewardStrength" type="error" :bordered="false">
-                    💪 力量: +{{ task.rewardStrength }}
-                  </n-tag>
-                  <n-tag v-if="task.rewardIntelligence" type="info" :bordered="false">
-                    🧠 智力: +{{ task.rewardIntelligence }}
-                  </n-tag>
-                  <n-tag v-if="task.rewardVitality" type="error" :bordered="false">
-                    ❤️ 体力: +{{ task.rewardVitality }}
-                  </n-tag>
-                  <n-tag v-if="task.rewardSpirit" type="default" :bordered="false">
-                    ✨ 精神: +{{ task.rewardSpirit }}
-                  </n-tag>
-                </n-space>
-              </div>
-
-              <!-- Penalty Section -->
-              <div v-if="task.type === 'challenge' && (task.penaltyExp || task.penaltyGold)" class="penalty-section">
-                <div class="section-title">失败惩罚</div>
-                <n-space>
-                  <n-tag v-if="task.penaltyExp" type="error" :bordered="false">
-                    💫 经验: -{{ task.penaltyExp }}
-                  </n-tag>
-                  <n-tag v-if="task.penaltyGold" type="error" :bordered="false">
-                    🪙 金币: -{{ task.penaltyGold }}
-                  </n-tag>
-                </n-space>
-              </div>
+      <div
+        v-for="task in filteredTasks"
+        :key="task.id"
+        class="task-item"
+        :class="{ 
+          'task-completing': completingTaskId === task.id,
+          'task-completed': task.status === 'completed',
+          'task-failed': task.status === 'failed'
+        }"
+        @mousedown="task.status === 'active' && startComplete(task.id, $event)"
+        @mouseup="cancelComplete"
+        @mouseleave="cancelComplete"
+        @touchstart="task.status === 'active' && startComplete(task.id, $event)"
+        @touchend="cancelComplete"
+        @touchcancel="cancelComplete"
+      >
+        <!-- Progress overlay for long press -->
+        <div 
+          class="complete-progress" 
+          :style="{ width: (completingTaskId === task.id || completedTaskId === task.id) ? '100%' : '0%' }"
+        ></div>
+        
+        <div class="task-content">
+          <div class="task-main">
+            <span class="task-title">{{ task.title }}</span>
+            <div class="task-rewards">
+              <span v-if="task.rewardGold" class="reward-badge gold">🪙{{ task.rewardGold }}</span>
+              <span v-if="task.rewardExp" class="reward-badge exp">⭐{{ task.rewardExp }}</span>
+              <span v-if="task.rewardIntelligence" class="reward-badge attr">🧠+{{ task.rewardIntelligence }}</span>
+              <span v-if="task.rewardVitality" class="reward-badge attr">💪+{{ task.rewardVitality }}</span>
             </div>
-
-            <template #footer>
-              <div class="task-actions">
-                <n-button
-                  v-if="task.status === 'active'"
-                  type="success"
-                  text
-                  size="small"
-                  @click="completeTask(task.id)"
-                >
-                  ✅ 完成
-                </n-button>
-                <n-button
-                  v-if="task.status === 'active'"
-                  type="info"
-                  text
-                  size="small"
-                  @click="handleEditTask(task)"
-                >
-                  ✏️ 编辑
-                </n-button>
-                <n-popconfirm
-                  v-if="task.status === 'active'"
-                  positive-text="确定"
-                  negative-text="取消"
-                  @positive-click="deleteTask(task.id)"
-                >
-                  <template #trigger>
-                    <n-button type="error" text size="small">
-                      🗑 删除
-                    </n-button>
-                  </template>
-                  <p>确定要删除这个任务吗？</p>
-                </n-popconfirm>
-              </div>
-            </template>
-          </n-card>
+          </div>
+          
+          <div class="task-meta">
+            <span class="task-type" :class="task.type">{{ getTaskTypeIcon(task.type) }}</span>
+            <span v-if="task.type === 'repeatable' && task.dailyLimit" class="task-count">
+              {{ task.todayCompletionCount }}/{{ task.dailyLimit }}
+            </span>
+            <span v-if="task.type === 'challenge' && task.deadline" class="task-deadline">
+              ⏱{{ formatTimeRemaining(task.deadline) }}
+            </span>
+          </div>
         </div>
-      </transition-group>
+
+        <!-- More actions menu -->
+        <n-dropdown
+          v-if="task.status === 'active'"
+          trigger="click"
+          :options="getTaskActions(task)"
+          @select="(key) => handleAction(key, task)"
+        >
+          <div 
+            class="more-btn" 
+            @click.stop 
+            @mousedown.stop 
+            @touchstart.stop
+          >
+            <span>⋮</span>
+          </div>
+        </n-dropdown>
+        
+        <div v-else class="status-badge">
+          {{ task.status === 'completed' ? '✓' : '✗' }}
+        </div>
+      </div>
     </div>
 
     <!-- Empty State -->
@@ -170,18 +111,15 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import {
-  NCard,
-  NTag,
   NButton,
   NRadioGroup,
   NRadioButton,
-  NSpace,
   NEmpty,
-  NPopconfirm
+  NDropdown
 } from 'naive-ui'
 import { useTaskStore } from '@/stores/task'
 import { useCharacterStore } from '@/stores/character'
-import { formatTimeRemaining, getDeadlineUrgency } from '@/utils/rpg'
+import { formatTimeRemaining } from '@/utils/rpg'
 import TaskForm from '@/components/TaskForm.vue'
 import type { Task } from '@/types'
 
@@ -193,6 +131,39 @@ const typeFilter = ref('')
 const statusFilter = ref('active')
 const showCreateForm = ref(false)
 const editingTask = ref<Task | null>(null)
+
+// Long press completion
+const completingTaskId = ref<number | null>(null)
+const completedTaskId = ref<number | null>(null)  // 防止回退
+const completeTimer = ref<number | null>(null)
+const COMPLETE_DURATION = 2000 // 2 seconds
+
+// 完成音效 - 使用用户提供的音效
+const playCompleteSound = () => {
+  const audio = new Audio('/complete.mp3')
+  audio.volume = 0.7
+  audio.play().catch(() => {})
+}
+
+// 撒花动画
+const createConfetti = () => {
+  const colors = ['#ffd700', '#10b981', '#818cf8', '#f59e0b', '#ec4899']
+  const container = document.createElement('div')
+  container.className = 'confetti-container'
+  document.body.appendChild(container)
+
+  for (let i = 0; i < 50; i++) {
+    const confetti = document.createElement('div')
+    confetti.className = 'confetti'
+    confetti.style.left = Math.random() * 100 + 'vw'
+    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)]
+    confetti.style.animationDelay = Math.random() * 0.5 + 's'
+    confetti.style.animationDuration = (Math.random() * 1 + 1.5) + 's'
+    container.appendChild(confetti)
+  }
+
+  setTimeout(() => container.remove(), 3000)
+}
 
 const filteredTasks = computed(() => taskStore.tasks)
 
@@ -211,89 +182,93 @@ watch([typeFilter, statusFilter], () => {
   fetchCurrentTasks()
 })
 
-const getTaskTypeName = (type: string): string => {
-  const names: { [key: string]: string } = {
-    once: '一次性',
-    repeatable: '可重复',
-    challenge: '挑战'
+const getTaskTypeIcon = (type: string): string => {
+  const icons: { [key: string]: string } = {
+    once: '📌',
+    repeatable: '🔄',
+    challenge: '⚔️'
   }
-  return names[type] || type
+  return icons[type] || '📋'
 }
 
-const getStatusName = (status: string): string => {
-  const names: { [key: string]: string } = {
-    active: '进行中',
-    completed: '已完成',
-    failed: '已失败',
-    deleted: '已删除'
-  }
-  return names[status] || status
+const getTaskActions = (task: Task) => {
+  return [
+    { label: '✏️ 编辑', key: 'edit' },
+    { label: '🗑️ 删除', key: 'delete' }
+  ]
 }
 
-const getStatusType = (status: string) => {
-  const types: { [key: string]: string } = {
-    active: 'info',
-    completed: 'success',
-    failed: 'error',
-    deleted: 'default'
+const handleAction = async (key: string, task: Task) => {
+  if (key === 'edit') {
+    editingTask.value = task
+    showCreateForm.value = true
+  } else if (key === 'delete') {
+    try {
+      await taskStore.deleteTask(task.id)
+      message.success('任务已删除')
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.message || error?.message || '删除失败'
+      message.error(errorMsg)
+    }
   }
-  return types[status] || 'default'
 }
 
-const hasRewards = (task: Task): boolean => {
-  return !!(
-    task.rewardExp ||
-    task.rewardGold ||
-    task.rewardStrength ||
-    task.rewardIntelligence ||
-    task.rewardVitality ||
-    task.rewardSpirit
-  )
+const startComplete = (taskId: number, event: MouseEvent | TouchEvent) => {
+  event.preventDefault()
+  // 如果已经完成，不再触发
+  if (completedTaskId.value === taskId) return
+  
+  completingTaskId.value = taskId
+  
+  completeTimer.value = window.setTimeout(async () => {
+    // 标记为已完成，防止进度条回退
+    completedTaskId.value = taskId
+    
+    // 播放音效 + 撒花
+    playCompleteSound()
+    createConfetti()
+    
+    // 延迟一点再调用完成接口，让动画更明显
+    setTimeout(async () => {
+      await completeTask(taskId)
+      completingTaskId.value = null
+      completedTaskId.value = null
+    }, 500)
+  }, COMPLETE_DURATION)
+}
+
+const cancelComplete = () => {
+  if (completeTimer.value) {
+    clearTimeout(completeTimer.value)
+    completeTimer.value = null
+  }
+  // 立即回退，但用快速动画
+  if (!completedTaskId.value) {
+    completingTaskId.value = null
+  }
 }
 
 const completeTask = async (id: number) => {
   try {
     const result = await taskStore.completeTask(id)
 
-    // Update character stats with the returned character data
     if (result?.character) {
       characterStore.character = result.character
     } else {
-      // Fallback: refresh character from server
       await characterStore.fetchCharacter()
     }
 
-    // Show success message with rewards
     if (result?.message) {
-      message.success(result.message, {
-        duration: 4000
-      })
+      message.success(result.message, { duration: 3000 })
     } else {
-      message.success('任务已完成！获得奖励')
+      message.success('✅ 任务完成！')
     }
 
-    // Refresh task list
-    setTimeout(() => fetchCurrentTasks(), 500)
+    setTimeout(() => fetchCurrentTasks(), 300)
   } catch (error: any) {
     const errorMsg = error?.response?.data?.message || error?.message || '完成失败'
     message.error(errorMsg)
-    console.error('Complete task error:', error)
   }
-}
-
-const deleteTask = async (id: number) => {
-  try {
-    await taskStore.deleteTask(id)
-    message.success('任务已删除')
-  } catch (error: any) {
-    const errorMsg = error?.response?.data?.message || error?.message || '删除失败'
-    message.error(errorMsg)
-  }
-}
-
-const handleEditTask = (task: Task) => {
-  editingTask.value = task
-  showCreateForm.value = true
 }
 
 const handleSubmitTask = async (taskData: Partial<Task>) => {
@@ -314,33 +289,13 @@ const handleSubmitTask = async (taskData: Partial<Task>) => {
   }
 }
 
-// Auto-refresh timer for deadline countdown
-const currentTime = ref(Date.now())
-
-const getDeadlineStyle = (deadline: string) => {
-  // Reference currentTime to ensure reactivity
-  currentTime.value // eslint-disable-line
-  const urgency = getDeadlineUrgency(deadline)
-  return {
-    color: urgency.color,
-    background: urgency.background
-  }
-}
-
-let timerInterval: number | null = null
-
 onMounted(async () => {
   await fetchCurrentTasks()
-
-  // Update current time every minute to refresh deadline display
-  timerInterval = window.setInterval(() => {
-    currentTime.value = Date.now()
-  }, 60000) // 60 seconds
 })
 
 onUnmounted(() => {
-  if (timerInterval) {
-    clearInterval(timerInterval)
+  if (completeTimer.value) {
+    clearTimeout(completeTimer.value)
   }
 })
 </script>
@@ -351,40 +306,28 @@ onUnmounted(() => {
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .task-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 
 .filter-section {
   display: flex;
-  gap: 24px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.filter-label {
-  font-weight: 600;
-  color: #d0d0e0;
 }
 
 :deep(.n-radio-group) {
@@ -393,148 +336,200 @@ onUnmounted(() => {
 
 :deep(.n-radio-button) {
   background-color: rgba(255, 255, 255, 0.05) !important;
-  color: #d0d0e0 !important;
+  color: #a0a0b0 !important;
   border-color: rgba(255, 215, 0, 0.2) !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
 }
 
 :deep(.n-radio-button--checked) {
-  background-color: rgba(255, 215, 0, 0.3) !important;
+  background-color: rgba(255, 215, 0, 0.2) !important;
   color: #ffd700 !important;
   border-color: #ffd700 !important;
 }
 
+/* Compact task list */
 .tasks-list {
-  display: grid;
-  gap: 16px;
-}
-
-.task-card {
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-:deep(.n-card) {
-  background: linear-gradient(135deg, rgba(30, 30, 50, 0.8) 0%, rgba(20, 20, 40, 0.8) 100%);
-  border: 1px solid rgba(255, 215, 0, 0.2);
-  border-radius: 8px;
-}
-
-.task-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  width: 100%;
-}
-
-.task-header-left {
-  flex: 1;
-}
-
-.task-title {
-  font-size: 18px;
-  font-weight: bold;
-  color: #d0d0e0;
-  margin: 0 0 8px 0;
-}
-
-.task-badges {
-  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-:deep(.n-tag) {
-  background: rgba(255, 215, 0, 0.1) !important;
-  color: #ffd700 !important;
+.task-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.9) 0%, rgba(25, 25, 45, 0.9) 100%);
+  border: 1px solid rgba(255, 215, 0, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
-.deadline-badge {
-  white-space: nowrap;
+.task-item:hover {
+  border-color: rgba(255, 215, 0, 0.4);
+  transform: translateX(2px);
 }
 
-.deadline-timer {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 12px;
-  transition: all 0.3s ease;
+.task-item:active {
+  transform: scale(0.99);
+}
+
+.task-completed {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.task-failed {
+  opacity: 0.5;
+  border-color: rgba(239, 68, 68, 0.3);
+  cursor: default;
+}
+
+/* Long press progress animation */
+.complete-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.5) 100%);
+  transition: width 1s ease-out;  /* 回退：1秒（快速） */
+  pointer-events: none;
+  z-index: 0;
+}
+
+.task-completing {
+  border-color: rgba(16, 185, 129, 0.6) !important;
+}
+
+.task-completing .complete-progress {
+  width: 100% !important;
+  transition: width 2s linear;  /* 填充：2秒 */
 }
 
 .task-content {
-  margin: 16px 0;
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  z-index: 1;
+  min-width: 0;
 }
 
-.task-description {
-  color: #a0a0b0;
-  margin: 0 0 12px 0;
-  line-height: 1.5;
+.task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #e0e0f0;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-rewards {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.reward-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.reward-badge.gold {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.reward-badge.exp {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.reward-badge.attr {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
 }
 
 .task-meta {
   display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.meta-item {
-  font-size: 12px;
-  color: #a0a0b0;
-}
-
-.rewards-section,
-.penalty-section {
-  margin: 16px 0;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 6px;
-  border-left: 3px solid rgba(255, 215, 0, 0.3);
-}
-
-.section-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #ffd700;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.task-actions {
-  display: flex;
+  align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
-.task-enter-active,
-.task-leave-active {
-  transition: all 0.3s ease;
+.task-type {
+  font-size: 14px;
 }
 
-.task-enter-from {
-  opacity: 0;
-  transform: translateX(-30px);
+.task-count {
+  font-size: 11px;
+  color: #a0a0b0;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.task-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
+.task-deadline {
+  font-size: 11px;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
+/* More button (three dots) */
+.more-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #808090;
+  font-size: 18px;
+  font-weight: bold;
+  transition: all 0.2s;
+  z-index: 2;
+}
+
+.more-btn:hover {
+  background: rgba(255, 215, 0, 0.1);
+  color: #ffd700;
+}
+
+.status-badge {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #808090;
+}
+
+/* Dropdown menu styling */
+:deep(.n-dropdown-option) {
+  font-size: 13px !important;
+}
+
+/* Mobile responsive */
 @media (max-width: 768px) {
   .task-controls {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
   }
 
   .filter-section {
@@ -547,26 +542,20 @@ onUnmounted(() => {
     -webkit-overflow-scrolling: touch;
   }
 
-  .filter-label {
-    font-size: 12px;
-    white-space: nowrap;
+  .task-item {
+    padding: 10px 12px;
   }
 
-  .task-header {
-    flex-direction: column;
-    gap: 8px;
+  .task-title {
+    font-size: 13px;
   }
 
-  .task-badges {
+  .task-rewards {
     flex-wrap: wrap;
   }
 
-  .deadline-badge {
-    width: 100%;
-  }
-
-  .deadline-timer {
-    font-size: 12px;
+  .reward-badge {
+    font-size: 10px;
   }
 }
 </style>
