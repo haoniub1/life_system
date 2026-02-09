@@ -1,15 +1,23 @@
 # Dependencies
 frontend/node_modules/
 frontend/dist/
+node_modules/
 
-# Go
+# Go binaries
 backend/life-system
+backend/life-backend
 
-# Data
-data/*.db
+# Data & Database
+data/
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
 
 # Config (use config.example.yaml as template)
 backend/etc/config.yaml
+*.env
+.env.*
 
 # IDE
 .idea/
@@ -21,6 +29,16 @@ backend/etc/config.yaml
 .DS_Store
 Thumbs.db
 
-# Old Next.js project files (to be cleaned up)
-node_modules/
+# Logs
+*.log
+/tmp/
+
+# Backup files
+*.bak
+*.backup
+
+# Old Next.js project files
 .next/
+
+# Lock files (optional, can be committed)
+package-lock.json
