@@ -153,6 +153,80 @@
       @submit="handleSubmitTask"
       @close="showCreateForm = false; editingTask = null"
     />
+
+    <!-- Task Detail Modal -->
+    <n-modal
+      v-model:show="showDetailModal"
+      preset="card"
+      :title="detailTask?.title || '任务详情'"
+      style="max-width: 500px"
+      @after-leave="detailTask = null"
+    >
+      <div v-if="detailTask" class="task-detail">
+        <div class="detail-row">
+          <span class="detail-label">类型</span>
+          <span class="detail-value">{{ getTaskTypeIcon(detailTask.type) }} {{ { once: '一次性', repeatable: '重复', challenge: '挑战' }[detailTask.type] }}</span>
+        </div>
+        
+        <div v-if="detailTask.difficulty" class="detail-row">
+          <span class="detail-label">难度</span>
+          <span class="detail-value difficulty-stars">
+            <span v-for="i in detailTask.difficulty" :key="i" class="star">⭐</span>
+          </span>
+        </div>
+
+        <div v-if="detailTask.primaryAttribute" class="detail-row">
+          <span class="detail-label">主属性</span>
+          <span class="detail-value">{{ ATTR_DISPLAY[detailTask.primaryAttribute].emoji }} {{ ATTR_DISPLAY[detailTask.primaryAttribute].name }}</span>
+        </div>
+
+        <div class="detail-row">
+          <span class="detail-label">奖励</span>
+          <div class="detail-rewards">
+            <span v-if="detailTask.rewardSpiritStones" class="reward-badge spirit">💎{{ detailTask.rewardSpiritStones }}</span>
+            <span v-if="detailTask.rewardExp" class="reward-badge exp">⭐{{ detailTask.rewardExp }}</span>
+            <span v-if="detailTask.rewardPhysique" class="reward-badge attr">💪+{{ detailTask.rewardPhysique }}</span>
+            <span v-if="detailTask.rewardWillpower" class="reward-badge attr">🧠+{{ detailTask.rewardWillpower }}</span>
+            <span v-if="detailTask.rewardIntelligence" class="reward-badge attr">📚+{{ detailTask.rewardIntelligence }}</span>
+            <span v-if="detailTask.rewardPerception" class="reward-badge attr">👁+{{ detailTask.rewardPerception }}</span>
+            <span v-if="detailTask.rewardCharisma" class="reward-badge attr">✨+{{ detailTask.rewardCharisma }}</span>
+            <span v-if="detailTask.rewardAgility" class="reward-badge attr">🏃+{{ detailTask.rewardAgility }}</span>
+          </div>
+        </div>
+
+        <div v-if="detailTask.fatigueCost" class="detail-row">
+          <span class="detail-label">疲劳消耗</span>
+          <span class="detail-value">⚡{{ detailTask.fatigueCost }}</span>
+        </div>
+
+        <div v-if="detailTask.type === 'repeatable' && detailTask.dailyLimit" class="detail-row">
+          <span class="detail-label">每日限制</span>
+          <span class="detail-value">{{ detailTask.todayCompletionCount || 0 }}/{{ detailTask.dailyLimit }}</span>
+        </div>
+
+        <div v-if="detailTask.type === 'challenge' && detailTask.deadline" class="detail-row">
+          <span class="detail-label">截止时间</span>
+          <span class="detail-value">{{ formatTimeRemaining(detailTask.deadline) }}</span>
+        </div>
+
+        <div v-if="detailTask.description" class="detail-row">
+          <span class="detail-label">描述</span>
+          <span class="detail-value">{{ detailTask.description }}</span>
+        </div>
+
+        <div class="detail-row">
+          <span class="detail-label">状态</span>
+          <span class="detail-value" :style="{ color: detailTask.status === 'completed' ? '#10b981' : detailTask.status === 'failed' ? '#ef4444' : '#a0a0b0' }">
+            {{ { active: '进行中', completed: '已完成', failed: '已失败' }[detailTask.status] || detailTask.status }}
+          </span>
+        </div>
+
+        <div v-if="detailTask.completedAt" class="detail-row">
+          <span class="detail-label">完成时间</span>
+          <span class="detail-value">{{ new Date(detailTask.completedAt).toLocaleString('zh-CN') }}</span>
+        </div>
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -164,7 +238,8 @@ import {
   NRadioGroup,
   NRadioButton,
   NEmpty,
-  NDropdown
+  NDropdown,
+  NModal
 } from 'naive-ui'
 import draggable from 'vuedraggable'
 import Sortable from 'sortablejs'
@@ -182,6 +257,8 @@ const typeFilter = ref('')
 const statusFilter = ref('active')
 const showCreateForm = ref(false)
 const editingTask = ref<Task | null>(null)
+const showDetailModal = ref(false)
+const detailTask = ref<Task | null>(null)
 
 // Long press completion
 const completingTaskId = ref<number | null>(null)
@@ -242,6 +319,11 @@ const getTaskTypeIcon = (type: string): string => {
     challenge: '\u2694\uFE0F'
   }
   return icons[type] || '\u{1F4CB}'
+}
+
+const showDetail = (task: Task) => {
+  detailTask.value = task
+  showDetailModal.value = true
 }
 
 const getTaskActions = (task: Task) => {
@@ -707,5 +789,45 @@ onUnmounted(() => {
   .reward-badge {
     font-size: 10px;
   }
+}
+
+/* Task Detail Modal */
+.task-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #ffd700;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  color: #e0e0f0;
+  flex: 1;
+}
+
+.detail-rewards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+:deep(.n-modal) {
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.95) 0%, rgba(25, 25, 45, 0.95) 100%);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+:deep(.n-card__content) {
+  padding: 20px;
 }
 </style>
