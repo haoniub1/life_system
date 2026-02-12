@@ -168,12 +168,16 @@ const editingTask = ref<Task | null>(null)
 const completingTaskId = ref<number | null>(null)
 const completedTaskId = ref<number | null>(null)
 const completeTimer = ref<number | null>(null)
-const COMPLETE_DURATION = 2000
+const COMPLETE_DURATION = 1000
+
+// Pre-load audio for mobile compatibility (reuse single instance)
+const completeAudio = new Audio('/complete.mp3')
+completeAudio.volume = 0.7
+completeAudio.load()
 
 const playCompleteSound = () => {
-  const audio = new Audio('/complete.mp3')
-  audio.volume = 0.7
-  audio.play().catch(() => {})
+  completeAudio.currentTime = 0
+  completeAudio.play().catch(() => {})
 }
 
 const createConfetti = () => {
@@ -246,6 +250,9 @@ const handleAction = async (key: string, task: Task) => {
 const startComplete = (taskId: number, event: MouseEvent | TouchEvent) => {
   event.preventDefault()
   if (completedTaskId.value === taskId) return
+
+  // Unlock audio on user gesture (mobile Safari requirement)
+  completeAudio.play().then(() => { completeAudio.pause(); completeAudio.currentTime = 0 }).catch(() => {})
 
   completingTaskId.value = taskId
 
@@ -456,7 +463,7 @@ onUnmounted(() => {
   top: 0;
   height: 100%;
   background: linear-gradient(90deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.5) 100%);
-  transition: width 1s ease-out;
+  transition: width 0.3s ease-out;
   pointer-events: none;
   z-index: 0;
 }
@@ -467,7 +474,7 @@ onUnmounted(() => {
 
 .task-completing .complete-progress {
   width: 100% !important;
-  transition: width 2s linear;
+  transition: width 1s linear;
 }
 
 .task-content {
