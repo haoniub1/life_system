@@ -1,23 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as characterApi from '@/api/character'
-import { expForLevel } from '@/utils/rpg'
-import type { CharacterStats } from '@/types'
+import type { CharacterStats, CharacterAttribute } from '@/types'
 
 export const useCharacterStore = defineStore('character', () => {
   const character = ref<CharacterStats | null>(null)
 
-  const expForNextLevel = computed(() => {
-    if (!character.value) return 0
-    return expForLevel(character.value.level + 1)
+  const highestRealm = computed(() => {
+    if (!character.value?.attributes?.length) return null
+    return character.value.attributes.reduce((max, attr) => {
+      if (attr.realm > max.realm || (attr.realm === max.realm && attr.subRealm > max.subRealm)) {
+        return attr
+      }
+      return max
+    }, character.value.attributes[0])
   })
 
-  const expProgress = computed(() => {
-    if (!character.value) return 0
-    const totalExpForNext = expForNextLevel.value
-    if (totalExpForNext === 0) return 0
-    return Math.min((character.value.exp / totalExpForNext) * 100, 100)
-  })
+  function getAttributeByKey(key: string): CharacterAttribute | undefined {
+    return character.value?.attributes?.find(a => a.attrKey === key)
+  }
 
   async function fetchCharacter(): Promise<void> {
     try {
@@ -43,8 +44,8 @@ export const useCharacterStore = defineStore('character', () => {
 
   return {
     character,
-    expForNextLevel,
-    expProgress,
+    highestRealm,
+    getAttributeByKey,
     fetchCharacter,
     updateCharacter
   }

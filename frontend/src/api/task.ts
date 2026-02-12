@@ -25,3 +25,7 @@ export async function completeTask(id: number): Promise<ApiResponse<CompleteTask
 export async function deleteTask(id: number): Promise<ApiResponse> {
   return request.delete(`/tasks/${id}`)
 }
+
+export async function reorderTasks(taskIds: number[]): Promise<ApiResponse> {
+  return request.put('/tasks/reorder', { taskIds })
+}

@@ -11,7 +11,7 @@ import (
 
 // TaskCompleter interface to avoid circular dependency with logic package
 type TaskCompleter interface {
-	CompleteTask(userID int64, taskID int64) (expGained int, goldGained int, newLevel int, newExp int, err error)
+	CompleteTask(userID int64, taskID int64) (expGained int, spiritStonesGained int, realmTitle string, spiritStones int, err error)
 	DeleteTask(userID int64, taskID int64) error
 }
 

@@ -9,23 +9,39 @@ export interface User {
 
 export interface CharacterStats {
   userId: number
-  level: number
-  exp: number
-  strength: number
-  intelligence: number
-  vitality: number
-  spirit: number
-  hp: number
-  maxHp: number
-  gold: number
+  spiritStones: number
+  fatigue: number
+  fatigueCap: number
+  fatigueLevel: number
+  overdraftPenalty: number
   title: string
   lastActivityDate: string
-  energy: number
-  maxEnergy: number
-  mentalPower: number
-  physicalPower: number
-  mentalSleepAid: number
-  physicalSleepAid: number
+  attributes: CharacterAttribute[]
+}
+
+export interface CharacterAttribute {
+  attrKey: string
+  displayName: string
+  emoji: string
+  value: number
+  realm: number
+  realmName: string
+  subRealm: number
+  subRealmName: string
+  realmExp: number
+  isBottleneck: boolean
+  accumulationPool: number
+  attrCap: number
+  progressPercent: number
+  color: string
+}
+
+export interface SpiritStoneDisplay {
+  total: number
+  supreme: number  // 极品
+  high: number     // 上品
+  medium: number   // 中品
+  low: number      // 下品
 }
 
 export interface SleepRecord {
@@ -44,9 +60,8 @@ export interface ShopItem {
   name: string
   description: string
   price: number
-  itemType: 'consumable' | 'permanent'
-  effect: string
-  effectValue: number
+  sellPrice: number
+  itemType: 'consumable' | 'equipment'
   icon: string
   image: string
   stock: number
@@ -58,8 +73,7 @@ export interface InventoryItem {
   name: string
   description: string
   itemType: string
-  effect: string
-  effectValue: number
+  sellPrice: number
   icon: string
   image: string
   quantity: number
@@ -82,14 +96,19 @@ export interface Task {
   type: 'once' | 'repeatable' | 'challenge'
   status: 'active' | 'completed' | 'failed' | 'deleted'
   deadline: string | null
+  primaryAttribute: string
+  difficulty: number
   rewardExp: number
-  rewardGold: number
-  rewardStrength: number
+  rewardSpiritStones: number
+  rewardPhysique: number
+  rewardWillpower: number
   rewardIntelligence: number
-  rewardVitality: number
-  rewardSpirit: number
+  rewardPerception: number
+  rewardCharisma: number
+  rewardAgility: number
   penaltyExp: number
-  penaltyGold: number
+  penaltySpiritStones: number
+  fatigueCost: number
   dailyLimit: number
   totalLimit: number
   completedCount: number
@@ -100,8 +119,6 @@ export interface Task {
   lastRemindedAt?: string | null
   createdAt: string
   updatedAt: string
-  costMental: number
-  costPhysical: number
 }
 
 export interface ApiResponse<T = any> {

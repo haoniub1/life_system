@@ -26,6 +26,32 @@
         <div class="header-left">
           <h1 class="page-title">{{ getPageTitle() }}</h1>
         </div>
+        <div class="header-center" v-if="characterStore.character">
+          <div class="global-spirit-stones" @click="showRMB = !showRMB">
+            <template v-if="showRMB">
+              <span class="global-icon">💰</span>
+              <span class="global-value">¥{{ characterStore.character.spiritStones }}</span>
+            </template>
+            <template v-else>
+              <span v-if="spiritDisplay.supreme > 0" class="stone-chip stone-supreme">🔮{{ spiritDisplay.supreme }}极品</span>
+              <span v-if="spiritDisplay.high > 0" class="stone-chip stone-high">💠{{ spiritDisplay.high }}上品</span>
+              <span v-if="spiritDisplay.medium > 0" class="stone-chip stone-medium">💎{{ spiritDisplay.medium }}中品</span>
+              <span class="stone-chip stone-low">🪨{{ spiritDisplay.low }}下品</span>
+            </template>
+          </div>
+          <div class="global-fatigue" @click="toggleFatigueMode">
+            <span class="global-icon">{{ showActivity ? '⚡' : '😴' }}</span>
+            <div class="global-bar-wrapper">
+              <div class="global-bar">
+                <div
+                  class="global-bar-fill"
+                  :style="{ width: fatigueBarPercent + '%', background: fatigueBarColor }"
+                ></div>
+              </div>
+              <span class="global-bar-text">{{ fatigueBarLabel }}</span>
+            </div>
+          </div>
+        </div>
         <div class="header-right">
           <div class="user-info" @click="showSettings = true">
             <div class="header-avatar">
@@ -121,6 +147,7 @@ import {
 } from '@vicons/ionicons5'
 import { useUserStore } from '@/stores/user'
 import { useCharacterStore } from '@/stores/character'
+import { decomposeSpiritStones } from '@/utils/rpg'
 import CharacterCard from '@/components/CharacterCard.vue'
 import TaskManager from '@/components/TaskManager.vue'
 import TelegramBind from '@/components/TelegramBind.vue'
@@ -138,7 +165,49 @@ const characterStore = useCharacterStore()
 const collapsed = ref(false)
 const activeMenu = ref('character')
 const showSettings = ref(false)
+const showActivity = ref(true) // true=活跃度, false=疲劳值
+const showRMB = ref(false) // true=RMB, false=灵石
+
+const spiritDisplay = computed(() => {
+  return decomposeSpiritStones(characterStore.character?.spiritStones || 0)
+})
 const windowWidth = ref(window.innerWidth)
+
+const toggleFatigueMode = () => {
+  showActivity.value = !showActivity.value
+}
+
+const fatigueBarPercent = computed(() => {
+  const c = characterStore.character
+  if (!c || c.fatigueCap === 0) return showActivity.value ? 100 : 0
+  if (showActivity.value) {
+    return Math.max(0, Math.min(100, (1 - c.fatigue / c.fatigueCap) * 100))
+  }
+  return Math.max(0, Math.min(100, (c.fatigue / c.fatigueCap) * 100))
+})
+
+const fatigueBarColor = computed(() => {
+  if (showActivity.value) {
+    const pct = fatigueBarPercent.value
+    if (pct > 60) return '#10b981'
+    if (pct > 30) return '#f59e0b'
+    return '#ef4444'
+  }
+  const pct = fatigueBarPercent.value
+  if (pct < 40) return '#10b981'
+  if (pct < 70) return '#f59e0b'
+  return '#ef4444'
+})
+
+const fatigueBarLabel = computed(() => {
+  const c = characterStore.character
+  if (!c) return ''
+  if (showActivity.value) {
+    const pct = Math.max(0, Math.min(100, (1 - c.fatigue / c.fatigueCap) * 100))
+    return `${pct.toFixed(0)}%`
+  }
+  return `${c.fatigue}/${c.fatigueCap}`
+})
 
 const onResize = () => { windowWidth.value = window.innerWidth }
 const isMobile = computed(() => windowWidth.value <= 768)
@@ -292,6 +361,112 @@ onUnmounted(() => {
   margin: 0;
 }
 
+/* Global Stats in Header */
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.global-spirit-stones {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+}
+
+.global-spirit-stones:hover {
+  background: rgba(139, 92, 246, 0.2);
+}
+
+.stone-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.stone-supreme {
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.15);
+}
+
+.stone-high {
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.15);
+}
+
+.stone-medium {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.stone-low {
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.1);
+}
+
+.global-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.global-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #c4b5fd;
+}
+
+.global-fatigue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+}
+
+.global-fatigue:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.global-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.global-bar {
+  width: 60px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.global-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.global-bar-text {
+  font-size: 11px;
+  color: #a0a0b0;
+  min-width: 36px;
+  white-space: nowrap;
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -430,6 +605,19 @@ onUnmounted(() => {
 
   .page-title {
     font-size: 16px;
+  }
+
+  .header-center {
+    gap: 6px;
+  }
+
+  .stone-chip {
+    font-size: 10px;
+    padding: 0 3px;
+  }
+
+  .global-bar {
+    width: 40px;
   }
 
   .username {

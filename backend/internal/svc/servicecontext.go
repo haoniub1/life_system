@@ -5,6 +5,7 @@ import (
 	"life-system-backend/internal/config"
 	"life-system-backend/internal/model"
 	"life-system-backend/pkg/bark"
+	"life-system-backend/pkg/ratelimit"
 	"life-system-backend/pkg/telegram"
 )
 
@@ -18,14 +19,15 @@ type ServiceContext struct {
 	ShopModel      *model.ShopModel
 	TelegramBot    *telegram.Bot
 	BarkClient     *bark.Client
+	RateLimiter    *ratelimit.Limiter
 }
 
 func NewServiceContext(cfg config.Config, db *sql.DB, bot *telegram.Bot) *ServiceContext {
-	// Initialize Bark client if enabled
-	var barkClient *bark.Client
-	if cfg.Bark.Enabled && cfg.Bark.ServerURL != "" {
-		barkClient = bark.NewClient(cfg.Bark.ServerURL)
-	}
+	// Bark client always initialized with official server
+	barkClient := bark.NewClient("https://api.day.app")
+
+	// Rate limiter with configurable limits (defaults applied by go-zero)
+	rateLimiter := ratelimit.NewLimiter(cfg.RateLimit.MaxLoginFailures, cfg.RateLimit.MaxDailyRegisters)
 
 	ctx := &ServiceContext{
 		Config:         cfg,
@@ -37,6 +39,7 @@ func NewServiceContext(cfg config.Config, db *sql.DB, bot *telegram.Bot) *Servic
 		ShopModel:      model.NewShopModel(db),
 		TelegramBot:    bot,
 		BarkClient:     barkClient,
+		RateLimiter:    rateLimiter,
 	}
 
 	// Set the service context reference in the bot to avoid circular import

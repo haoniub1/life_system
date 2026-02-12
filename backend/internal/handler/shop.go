@@ -209,6 +209,35 @@ func UseItemHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func SellItemHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserID(r.Context())
+		if err != nil {
+			httpx.OkJson(w, types.CommonResp{Code: 401, Message: "unauthorized"})
+			return
+		}
+
+		var req types.SellItemReq
+		if err := httpx.Parse(r, &req); err != nil {
+			httpx.OkJson(w, types.CommonResp{Code: 400, Message: "invalid request"})
+			return
+		}
+
+		l := logic.NewShopLogic(svcCtx)
+		resp, err := l.SellItem(r.Context(), userID, &req)
+		if err != nil {
+			httpx.OkJson(w, types.CommonResp{Code: 400, Message: err.Error()})
+			return
+		}
+
+		httpx.OkJson(w, types.CommonResp{
+			Code:    0,
+			Message: resp.Message,
+			Data:    resp,
+		})
+	}
+}
+
 func GetPurchaseHistoryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := middleware.GetUserID(r.Context())

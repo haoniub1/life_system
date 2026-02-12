@@ -168,6 +168,87 @@ func CompleteTaskHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func ReorderTasksHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserID(r.Context())
+		if err != nil {
+			httpx.OkJson(w, types.CommonResp{
+				Code:    401,
+				Message: "unauthorized",
+			})
+			return
+		}
+
+		var req types.ReorderTasksReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			httpx.OkJson(w, types.CommonResp{
+				Code:    400,
+				Message: "invalid request",
+			})
+			return
+		}
+
+		if len(req.TaskIDs) == 0 {
+			httpx.OkJson(w, types.CommonResp{
+				Code:    400,
+				Message: "taskIds is required",
+			})
+			return
+		}
+
+		if err := svcCtx.TaskModel.ReorderTasks(userID, req.TaskIDs); err != nil {
+			httpx.OkJson(w, types.CommonResp{
+				Code:    400,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		httpx.OkJson(w, types.CommonResp{
+			Code:    0,
+			Message: "success",
+		})
+	}
+}
+
+func QuickCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserID(r.Context())
+		if err != nil {
+			httpx.OkJson(w, types.CommonResp{
+				Code:    401,
+				Message: "unauthorized",
+			})
+			return
+		}
+
+		var req types.QuickTaskReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			httpx.OkJson(w, types.CommonResp{
+				Code:    400,
+				Message: "invalid request",
+			})
+			return
+		}
+
+		task := logic.NewTaskLogic(svcCtx)
+		result, err := task.QuickComplete(r.Context(), userID, &req)
+		if err != nil {
+			httpx.OkJson(w, types.CommonResp{
+				Code:    400,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		httpx.OkJson(w, types.CommonResp{
+			Code:    0,
+			Message: result.Message,
+			Data:    result,
+		})
+	}
+}
+
 func DeleteTaskHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := middleware.GetUserID(r.Context())

@@ -4,10 +4,15 @@ import "github.com/zeromicro/go-zero/rest"
 
 type Config struct {
 	rest.RestConf
-	Database DatabaseConfig
-	Auth     AuthConfig
-	Telegram TelegramConfig
-	Bark     BarkConfig
+	Database  DatabaseConfig
+	Auth      AuthConfig
+	Telegram  TelegramConfig
+	RateLimit RateLimitConfig
+}
+
+type RateLimitConfig struct {
+	MaxLoginFailures  int `json:",default=10"` // Per IP per day
+	MaxDailyRegisters int `json:",default=10"` // Per IP per day
 }
 
 type DatabaseConfig struct {
@@ -22,9 +27,4 @@ type AuthConfig struct {
 type TelegramConfig struct {
 	BotToken string
 	Enabled  bool
-}
-
-type BarkConfig struct {
-	Enabled   bool
-	ServerURL string // e.g., "https://api.day.app" or self-hosted URL
 }

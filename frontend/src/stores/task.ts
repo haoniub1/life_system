@@ -85,6 +85,14 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
+  async function reorderTasks(taskIds: number[]): Promise<void> {
+    try {
+      await taskApi.reorderTasks(taskIds)
+    } catch (error) {
+      throw error
+    }
+  }
+
   return {
     tasks,
     loading,
@@ -92,6 +100,7 @@ export const useTaskStore = defineStore('task', () => {
     createTask,
     completeTask,
     deleteTask,
-    updateTask
+    updateTask,
+    reorderTasks
   }
 })

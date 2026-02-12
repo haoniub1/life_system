@@ -37,32 +37,40 @@ type AuthResp struct {
 
 // Character
 type CharacterResp struct {
-	UserID           int64   `json:"userId"`
-	Level            int     `json:"level"`
-	Exp              int     `json:"exp"`
-	Strength         float64 `json:"strength"`
-	Intelligence     float64 `json:"intelligence"`
-	Vitality         float64 `json:"vitality"`
-	Spirit           float64 `json:"spirit"`
-	HP               int     `json:"hp"`
-	MaxHP            int     `json:"maxHp"`
-	Gold             int     `json:"gold"`
-	Title            string  `json:"title"`
-	LastActivityDate string  `json:"lastActivityDate"`
-	Energy           int     `json:"energy"`
-	MaxEnergy        int     `json:"maxEnergy"`
-	MentalPower      int     `json:"mentalPower"`
-	PhysicalPower    int     `json:"physicalPower"`
-	MentalSleepAid   int     `json:"mentalSleepAid"`
-	PhysicalSleepAid int     `json:"physicalSleepAid"`
+	UserID           int64           `json:"userId"`
+	SpiritStones     int             `json:"spiritStones"`
+	Fatigue          int             `json:"fatigue"`
+	FatigueCap       int             `json:"fatigueCap"`
+	FatigueLevel     int             `json:"fatigueLevel"`
+	OverdraftPenalty float64         `json:"overdraftPenalty"`
+	Title            string          `json:"title"`
+	LastActivityDate string          `json:"lastActivityDate"`
+	Attributes       []AttributeResp `json:"attributes"`
 }
 
-type UpdateCharacterReq struct {
-	DisplayName  *string  `json:"displayName,omitempty"`
-	Strength     *float64 `json:"strength,omitempty"`
-	Intelligence *float64 `json:"intelligence,omitempty"`
-	Vitality     *float64 `json:"vitality,omitempty"`
-	Spirit       *float64 `json:"spirit,omitempty"`
+type AttributeResp struct {
+	AttrKey          string  `json:"attrKey"`
+	DisplayName      string  `json:"displayName"`
+	Emoji            string  `json:"emoji"`
+	Value            float64 `json:"value"`
+	Realm            int     `json:"realm"`
+	RealmName        string  `json:"realmName"`
+	SubRealm         int     `json:"subRealm"`
+	SubRealmName     string  `json:"subRealmName"`
+	RealmExp         int     `json:"realmExp"`
+	IsBottleneck     bool    `json:"isBottleneck"`
+	AccumulationPool float64 `json:"accumulationPool"`
+	AttrCap          float64 `json:"attrCap"`
+	ProgressPercent  float64 `json:"progressPercent"`
+	Color            string  `json:"color"`
+}
+
+type SpiritStoneDisplay struct {
+	Total   int `json:"total"`
+	Supreme int `json:"supreme"` // floor(n/1000000)
+	High    int `json:"high"`    // floor(n%1000000/10000)
+	Medium  int `json:"medium"`  // floor(n%10000/100)
+	Low     int `json:"low"`     // n%100
 }
 
 // Task
@@ -70,22 +78,25 @@ type CreateTaskReq struct {
 	Title              string  `json:"title"`
 	Description        string  `json:"description"`
 	Category           string  `json:"category"`
-	Type               string  `json:"type"`     // once, repeatable, challenge
-	Deadline           string  `json:"deadline"` // ISO8601 format
+	Type               string  `json:"type"`
+	Deadline           string  `json:"deadline"`
+	PrimaryAttribute   string  `json:"primaryAttribute"`
+	Difficulty         int     `json:"difficulty"`
 	RewardExp          int     `json:"rewardExp"`
-	RewardGold         int     `json:"rewardGold"`
-	RewardStrength     float64 `json:"rewardStrength"`
+	RewardSpiritStones int     `json:"rewardSpiritStones"`
+	RewardPhysique     float64 `json:"rewardPhysique"`
+	RewardWillpower    float64 `json:"rewardWillpower"`
 	RewardIntelligence float64 `json:"rewardIntelligence"`
-	RewardVitality     float64 `json:"rewardVitality"`
-	RewardSpirit       float64 `json:"rewardSpirit"`
+	RewardPerception   float64 `json:"rewardPerception"`
+	RewardCharisma     float64 `json:"rewardCharisma"`
+	RewardAgility      float64 `json:"rewardAgility"`
 	PenaltyExp         int     `json:"penaltyExp"`
-	PenaltyGold        int     `json:"penaltyGold"`
+	PenaltySpiritStones int    `json:"penaltySpiritStones"`
+	FatigueCost        int     `json:"fatigueCost"`
 	DailyLimit         int     `json:"dailyLimit"`
 	TotalLimit         int     `json:"totalLimit"`
-	RemindBefore       int     `json:"remindBefore"`   // minutes
-	RemindInterval     int     `json:"remindInterval"` // minutes
-	CostMental         int     `json:"costMental"`
-	CostPhysical       int     `json:"costPhysical"`
+	RemindBefore       int     `json:"remindBefore"`
+	RemindInterval     int     `json:"remindInterval"`
 }
 
 type UpdateTaskReq struct {
@@ -93,21 +104,24 @@ type UpdateTaskReq struct {
 	Description        *string  `json:"description,omitempty"`
 	Category           *string  `json:"category,omitempty"`
 	Type               *string  `json:"type,omitempty"`
-	Deadline           *string  `json:"deadline,omitempty"` // ISO8601 format
+	Deadline           *string  `json:"deadline,omitempty"`
+	PrimaryAttribute   *string  `json:"primaryAttribute,omitempty"`
+	Difficulty         *int     `json:"difficulty,omitempty"`
 	RewardExp          *int     `json:"rewardExp,omitempty"`
-	RewardGold         *int     `json:"rewardGold,omitempty"`
-	RewardStrength     *float64 `json:"rewardStrength,omitempty"`
+	RewardSpiritStones *int     `json:"rewardSpiritStones,omitempty"`
+	RewardPhysique     *float64 `json:"rewardPhysique,omitempty"`
+	RewardWillpower    *float64 `json:"rewardWillpower,omitempty"`
 	RewardIntelligence *float64 `json:"rewardIntelligence,omitempty"`
-	RewardVitality     *float64 `json:"rewardVitality,omitempty"`
-	RewardSpirit       *float64 `json:"rewardSpirit,omitempty"`
+	RewardPerception   *float64 `json:"rewardPerception,omitempty"`
+	RewardCharisma     *float64 `json:"rewardCharisma,omitempty"`
+	RewardAgility      *float64 `json:"rewardAgility,omitempty"`
 	PenaltyExp         *int     `json:"penaltyExp,omitempty"`
-	PenaltyGold        *int     `json:"penaltyGold,omitempty"`
+	PenaltySpiritStones *int    `json:"penaltySpiritStones,omitempty"`
+	FatigueCost        *int     `json:"fatigueCost,omitempty"`
 	DailyLimit         *int     `json:"dailyLimit,omitempty"`
 	TotalLimit         *int     `json:"totalLimit,omitempty"`
 	RemindBefore       *int     `json:"remindBefore,omitempty"`
 	RemindInterval     *int     `json:"remindInterval,omitempty"`
-	CostMental         *int     `json:"costMental,omitempty"`
-	CostPhysical       *int     `json:"costPhysical,omitempty"`
 }
 
 type TaskResp struct {
@@ -119,14 +133,19 @@ type TaskResp struct {
 	Type                 string  `json:"type"`
 	Status               string  `json:"status"`
 	Deadline             *string `json:"deadline"`
+	PrimaryAttribute     string  `json:"primaryAttribute"`
+	Difficulty           int     `json:"difficulty"`
 	RewardExp            int     `json:"rewardExp"`
-	RewardGold           int     `json:"rewardGold"`
-	RewardStrength       float64 `json:"rewardStrength"`
+	RewardSpiritStones   int     `json:"rewardSpiritStones"`
+	RewardPhysique       float64 `json:"rewardPhysique"`
+	RewardWillpower      float64 `json:"rewardWillpower"`
 	RewardIntelligence   float64 `json:"rewardIntelligence"`
-	RewardVitality       float64 `json:"rewardVitality"`
-	RewardSpirit         float64 `json:"rewardSpirit"`
+	RewardPerception     float64 `json:"rewardPerception"`
+	RewardCharisma       float64 `json:"rewardCharisma"`
+	RewardAgility        float64 `json:"rewardAgility"`
+	FatigueCost          int     `json:"fatigueCost"`
 	PenaltyExp           int     `json:"penaltyExp"`
-	PenaltyGold          int     `json:"penaltyGold"`
+	PenaltySpiritStones  int     `json:"penaltySpiritStones"`
 	DailyLimit           int     `json:"dailyLimit"`
 	TotalLimit           int     `json:"totalLimit"`
 	CompletedCount       int     `json:"completedCount"`
@@ -135,14 +154,51 @@ type TaskResp struct {
 	RemindBefore         int     `json:"remindBefore"`
 	RemindInterval       int     `json:"remindInterval"`
 	LastRemindedAt       *string `json:"lastRemindedAt"`
+	SortOrder            int     `json:"sortOrder"`
 	CreatedAt            string  `json:"createdAt"`
 	UpdatedAt            string  `json:"updatedAt"`
-	CostMental           int     `json:"costMental"`
-	CostPhysical         int     `json:"costPhysical"`
 }
 
 type TaskListResp struct {
 	Tasks []TaskResp `json:"tasks"`
+}
+
+type ReorderTasksReq struct {
+	TaskIDs []int64 `json:"taskIds"`
+}
+
+// Quick Task (API shortcut)
+// POST /api/tasks/quick
+//
+// Difficulty template (auto-filled):
+//   0★: fatigue=1,  spiritStones=10,   attrBonus=0
+//   1★: fatigue=5,  spiritStones=50,   attrBonus=0.1
+//   2★: fatigue=10, spiritStones=120,  attrBonus=0.2
+//   3★: fatigue=20, spiritStones=300,  attrBonus=0.4
+//   4★: fatigue=40, spiritStones=800,  attrBonus=0.7
+//   5★: fatigue=90, spiritStones=2500, attrBonus=1.0
+//
+// Categories (attribute keys, each selected one gets attrBonus):
+//   "physique"     - 体魄 💪 (exercise, health, diet)
+//   "willpower"    - 意志 🧠 (discipline, habits, meditation)
+//   "intelligence" - 智力 📚 (study, reading, coding)
+//   "perception"   - 感知 👁 (observation, art, reflection)
+//   "charisma"     - 魅力 ✨ (communication, networking)
+//   "agility"      - 敏捷 🏃 (speed, execution, coordination)
+//
+// Task types:
+//   "once"       - (default) Create + complete in one shot, immediate rewards
+//   "repeatable" - Create only, stays active for repeated completion via POST /api/tasks/complete/:id
+//   "challenge"  - Create only, has deadline, penalties on failure
+type QuickTaskReq struct {
+	Title      string   `json:"title"`      // Optional, auto-generated if empty
+	Difficulty int      `json:"difficulty"`  // 0-5 stars
+	Categories []string `json:"categories"` // Attribute keys
+	Type       string   `json:"type"`       // once (default), repeatable, challenge
+	DailyLimit int      `json:"dailyLimit"` // For repeatable: max completions per day (0=unlimited)
+	TotalLimit int      `json:"totalLimit"` // For repeatable: max total completions (0=unlimited)
+	Deadline   string   `json:"deadline"`   // For challenge: ISO8601 deadline
+	Source     string   `json:"source"`     // e.g. "ios-shortcut", "api"
 }
 
 // Telegram
@@ -201,6 +257,8 @@ type ShopItemResp struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Price       int    `json:"price"`
+	SellPrice   int    `json:"sellPrice"`
+	ItemType    string `json:"itemType"`
 	Icon        string `json:"icon"`
 	Image       string `json:"image"`
 	Stock       int    `json:"stock"`
@@ -210,6 +268,8 @@ type CreateShopItemReq struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Price       int    `json:"price"`
+	SellPrice   int    `json:"sellPrice"`
+	ItemType    string `json:"itemType"`
 	Icon        string `json:"icon"`
 	Image       string `json:"image"`
 	Stock       int    `json:"stock"`
@@ -219,6 +279,8 @@ type UpdateShopItemReq struct {
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Price       *int    `json:"price,omitempty"`
+	SellPrice   *int    `json:"sellPrice,omitempty"`
+	ItemType    *string `json:"itemType,omitempty"`
 	Icon        *string `json:"icon,omitempty"`
 	Image       *string `json:"image,omitempty"`
 	Stock       *int    `json:"stock,omitempty"`
@@ -234,9 +296,9 @@ type PurchaseItemReq struct {
 }
 
 type PurchaseResult struct {
-	Success       bool   `json:"success"`
-	Message       string `json:"message"`
-	RemainingGold int    `json:"remainingGold"`
+	Success              bool   `json:"success"`
+	Message              string `json:"message"`
+	RemainingSpiritStones int    `json:"remainingSpiritStones"`
 }
 
 type InventoryItemResp struct {
@@ -244,9 +306,22 @@ type InventoryItemResp struct {
 	ItemID      int64  `json:"itemId"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	ItemType    string `json:"itemType"`
+	SellPrice   int    `json:"sellPrice"`
 	Icon        string `json:"icon"`
 	Image       string `json:"image"`
 	Quantity    int    `json:"quantity"`
+}
+
+type SellItemReq struct {
+	ItemID   int64 `json:"itemId"`
+	Quantity int   `json:"quantity"`
+}
+
+type SellItemResult struct {
+	Success              bool   `json:"success"`
+	Message              string `json:"message"`
+	RemainingSpiritStones int    `json:"remainingSpiritStones"`
 }
 
 type InventoryListResp struct {
@@ -282,22 +357,21 @@ type TimelineEvent struct {
 	Type        string           `json:"type"` // task_complete, task_fail, task_delete, sleep, purchase
 	Title       string           `json:"title"`
 	Description string           `json:"description"`
-	Timestamp   string           `json:"timestamp"`
 	Rewards     *TimelineRewards `json:"rewards,omitempty"`
+	Timestamp   string           `json:"timestamp"`
 }
 
 type TimelineRewards struct {
-	Exp    int `json:"exp,omitempty"`
-	Gold   int `json:"gold,omitempty"`
-	Energy int `json:"energy,omitempty"`
+	Exp          int `json:"exp,omitempty"`
+	SpiritStones int `json:"spiritStones,omitempty"`
 }
 
 type TimelineResp struct {
-	Events         []TimelineEvent `json:"events"`
-	TasksCompleted int             `json:"tasksCompleted"`
-	TotalExp       int             `json:"totalExp"`
-	TotalGold      int             `json:"totalGold"`
-	SleepRecords   int             `json:"sleepRecords"`
+	Events            []TimelineEvent `json:"events"`
+	TasksCompleted    int             `json:"tasksCompleted"`
+	TotalExp          int             `json:"totalExp"`
+	TotalSpiritStones int             `json:"totalSpiritStones"`
+	SleepRecords      int             `json:"sleepRecords"`
 }
 
 // Common

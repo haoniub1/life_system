@@ -74,12 +74,7 @@ func RegisterRoutes(server *rest.Server, svcCtx *svc.ServiceContext) {
 				Path:    "/api/character",
 				Handler: authMiddleware(GetCharacterHandler(svcCtx)),
 			},
-			{
-				Method:  "PUT",
-				Path:    "/api/character",
-				Handler: authMiddleware(UpdateCharacterHandler(svcCtx)),
-			},
-			// Tasks
+				// Tasks
 			{
 				Method:  "GET",
 				Path:    "/api/tasks",
@@ -99,6 +94,16 @@ func RegisterRoutes(server *rest.Server, svcCtx *svc.ServiceContext) {
 				Method:  "POST",
 				Path:    "/api/tasks/complete/:id",
 				Handler: authMiddleware(CompleteTaskHandler(svcCtx)),
+			},
+			{
+				Method:  "POST",
+				Path:    "/api/tasks/quick",
+				Handler: authMiddleware(QuickCompleteHandler(svcCtx)),
+			},
+			{
+				Method:  "PUT",
+				Path:    "/api/tasks/reorder",
+				Handler: authMiddleware(ReorderTasksHandler(svcCtx)),
 			},
 			{
 				Method:  "DELETE",
@@ -183,6 +188,11 @@ func RegisterRoutes(server *rest.Server, svcCtx *svc.ServiceContext) {
 				Method:  "POST",
 				Path:    "/api/shop/use",
 				Handler: authMiddleware(UseItemHandler(svcCtx)),
+			},
+			{
+				Method:  "POST",
+				Path:    "/api/shop/sell",
+				Handler: authMiddleware(SellItemHandler(svcCtx)),
 			},
 			{
 				Method:  "GET",

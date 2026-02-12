@@ -83,7 +83,7 @@ func (b *Bot) handleCompleteCallback(chatID int64, messageID int, userID int64, 
 		return
 	}
 
-	expGained, goldGained, newLevel, newExp, err := b.taskCompleter.CompleteTask(userID, taskID)
+	expGained, spiritStonesGained, realmTitle, totalSpiritStones, err := b.taskCompleter.CompleteTask(userID, taskID)
 	if err != nil {
 		b.SendMessage(chatID, fmt.Sprintf("❌ 完成失败：%s", err.Error()))
 		log.Printf("Error completing task: %v", err)
@@ -91,8 +91,9 @@ func (b *Bot) handleCompleteCallback(chatID int64, messageID int, userID int64, 
 	}
 
 	// Send success message
-	msg := fmt.Sprintf("✅ 任务「%s」已完成！\n获得 %d经验 %d金币\n\n当前等级：%d | 经验：%d",
-		task.Title, expGained, goldGained, newLevel, newExp)
+	_ = expGained
+	msg := fmt.Sprintf("✅ 任务「%s」已完成！\n获得 %d灵石\n\n境界：%s | 灵石：%d",
+		task.Title, spiritStonesGained, realmTitle, totalSpiritStones)
 	b.SendMessage(chatID, msg)
 
 	// Update the original task list message to reflect completion

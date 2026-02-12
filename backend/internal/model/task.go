@@ -15,26 +15,30 @@ type Task struct {
 	Type                 string // once, repeatable, challenge
 	Status               string // active, completed, failed, deleted
 	Deadline             sql.NullTime
+	PrimaryAttribute     string
+	Difficulty           int
 	RewardExp            int
-	RewardGold           int
-	RewardStrength       float64
+	RewardSpiritStones   int
+	RewardPhysique       float64
+	RewardWillpower      float64
 	RewardIntelligence   float64
-	RewardVitality       float64
-	RewardSpirit         float64
+	RewardPerception     float64
+	RewardCharisma       float64
+	RewardAgility        float64
+	FatigueCost          int
 	PenaltyExp           int
-	PenaltyGold          int
+	PenaltySpiritStones  int
 	DailyLimit           int
 	TotalLimit           int
 	CompletedCount       int
-	TodayCompletionCount int    // Today's completion count for repeatable tasks
-	LastCompletedDate    string // Last completion date (YYYY-MM-DD) for daily reset
-	RemindBefore         int    // minutes
-	RemindInterval       int    // minutes
+	TodayCompletionCount int
+	LastCompletedDate    string
+	RemindBefore         int // minutes
+	RemindInterval       int // minutes
 	LastRemindedAt       sql.NullTime
+	SortOrder            int
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
-	CostMental           int // Mental power cost when completing
-	CostPhysical         int // Physical power cost when completing
 }
 
 type TaskLog struct {
@@ -54,16 +58,50 @@ func NewTaskModel(db *sql.DB) *TaskModel {
 	return &TaskModel{db: db}
 }
 
+// taskColumns is the shared column list for task queries.
+const taskColumns = `id, user_id, title, description, category, type, status, deadline,
+       primary_attribute, difficulty,
+       reward_exp, reward_spirit_stones,
+       reward_physique, reward_willpower, reward_intelligence,
+       reward_perception, reward_charisma, reward_agility,
+       fatigue_cost, penalty_exp, penalty_spirit_stones,
+       daily_limit, total_limit, completed_count,
+       today_completion_count, last_completed_date,
+       remind_before, remind_interval, last_reminded_at,
+       COALESCE(sort_order, 0) as sort_order, created_at, updated_at`
+
+// taskColumnsAliased is the same column list prefixed with "t." for use in JOIN queries.
+const taskColumnsAliased = `t.id, t.user_id, t.title, t.description, t.category, t.type, t.status, t.deadline,
+       t.primary_attribute, t.difficulty,
+       t.reward_exp, t.reward_spirit_stones,
+       t.reward_physique, t.reward_willpower, t.reward_intelligence,
+       t.reward_perception, t.reward_charisma, t.reward_agility,
+       t.fatigue_cost, t.penalty_exp, t.penalty_spirit_stones,
+       t.daily_limit, t.total_limit, t.completed_count,
+       t.today_completion_count, t.last_completed_date,
+       t.remind_before, t.remind_interval, t.last_reminded_at,
+       COALESCE(t.sort_order, 0) as sort_order, t.created_at, t.updated_at`
+
+func scanTask(scanner interface{ Scan(...interface{}) error }) (*Task, error) {
+	var task Task
+	err := scanner.Scan(
+		&task.ID, &task.UserID, &task.Title, &task.Description, &task.Category, &task.Type,
+		&task.Status, &task.Deadline,
+		&task.PrimaryAttribute, &task.Difficulty,
+		&task.RewardExp, &task.RewardSpiritStones,
+		&task.RewardPhysique, &task.RewardWillpower, &task.RewardIntelligence,
+		&task.RewardPerception, &task.RewardCharisma, &task.RewardAgility,
+		&task.FatigueCost, &task.PenaltyExp, &task.PenaltySpiritStones,
+		&task.DailyLimit, &task.TotalLimit, &task.CompletedCount,
+		&task.TodayCompletionCount, &task.LastCompletedDate,
+		&task.RemindBefore, &task.RemindInterval, &task.LastRemindedAt,
+		&task.SortOrder, &task.CreatedAt, &task.UpdatedAt,
+	)
+	return &task, err
+}
+
 func (m *TaskModel) FindByUserID(userID int64, taskType, status string) ([]*Task, error) {
-	query := `
-		SELECT id, user_id, title, description, category, type, status, deadline,
-		       reward_exp, reward_gold, reward_strength, reward_intelligence, reward_vitality, reward_spirit,
-		       penalty_exp, penalty_gold, daily_limit, total_limit, completed_count,
-		       today_completion_count, last_completed_date,
-		       remind_before, remind_interval, last_reminded_at, created_at, updated_at,
-		       cost_mental, cost_physical
-		FROM tasks WHERE user_id = ?
-	`
+	query := `SELECT ` + taskColumns + ` FROM tasks WHERE user_id = ?`
 	args := []interface{}{userID}
 
 	if taskType != "" {
@@ -78,7 +116,7 @@ func (m *TaskModel) FindByUserID(userID int64, taskType, status string) ([]*Task
 		query += ` AND status != 'deleted'`
 	}
 
-	query += ` ORDER BY created_at DESC`
+	query += ` ORDER BY COALESCE(sort_order, 0) ASC, created_at DESC`
 
 	rows, err := m.db.Query(query, args...)
 	if err != nil {
@@ -88,69 +126,58 @@ func (m *TaskModel) FindByUserID(userID int64, taskType, status string) ([]*Task
 
 	var tasks []*Task
 	for rows.Next() {
-		var task Task
-		err := rows.Scan(
-			&task.ID, &task.UserID, &task.Title, &task.Description, &task.Category, &task.Type,
-			&task.Status, &task.Deadline, &task.RewardExp, &task.RewardGold,
-			&task.RewardStrength, &task.RewardIntelligence, &task.RewardVitality, &task.RewardSpirit,
-			&task.PenaltyExp, &task.PenaltyGold, &task.DailyLimit, &task.TotalLimit, &task.CompletedCount,
-			&task.TodayCompletionCount, &task.LastCompletedDate,
-			&task.RemindBefore, &task.RemindInterval, &task.LastRemindedAt, &task.CreatedAt, &task.UpdatedAt,
-			&task.CostMental, &task.CostPhysical,
-		)
+		task, err := scanTask(rows)
 		if err != nil {
 			return nil, err
 		}
-		tasks = append(tasks, &task)
+		tasks = append(tasks, task)
 	}
 
 	return tasks, rows.Err()
 }
 
 func (m *TaskModel) FindByID(id int64) (*Task, error) {
-	var task Task
-	err := m.db.QueryRow(`
-		SELECT id, user_id, title, description, category, type, status, deadline,
-		       reward_exp, reward_gold, reward_strength, reward_intelligence, reward_vitality, reward_spirit,
-		       penalty_exp, penalty_gold, daily_limit, total_limit, completed_count,
-		       today_completion_count, last_completed_date,
-		       remind_before, remind_interval, last_reminded_at, created_at, updated_at,
-		       cost_mental, cost_physical
-		FROM tasks WHERE id = ?
-	`, id).Scan(
-		&task.ID, &task.UserID, &task.Title, &task.Description, &task.Category, &task.Type,
-		&task.Status, &task.Deadline, &task.RewardExp, &task.RewardGold,
-		&task.RewardStrength, &task.RewardIntelligence, &task.RewardVitality, &task.RewardSpirit,
-		&task.PenaltyExp, &task.PenaltyGold, &task.DailyLimit, &task.TotalLimit, &task.CompletedCount,
-		&task.TodayCompletionCount, &task.LastCompletedDate,
-		&task.RemindBefore, &task.RemindInterval, &task.LastRemindedAt, &task.CreatedAt, &task.UpdatedAt,
-		&task.CostMental, &task.CostPhysical,
-	)
-
+	row := m.db.QueryRow(`SELECT `+taskColumns+` FROM tasks WHERE id = ?`, id)
+	task, err := scanTask(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-
-	return &task, nil
+	return task, nil
 }
 
 func (m *TaskModel) Create(task *Task) (int64, error) {
 	result, err := m.db.Exec(`
 		INSERT INTO tasks (user_id, title, description, category, type, status, deadline,
-		                   reward_exp, reward_gold, reward_strength, reward_intelligence, reward_vitality, reward_spirit,
-		                   penalty_exp, penalty_gold, daily_limit, total_limit, completed_count,
+		                   primary_attribute, difficulty,
+		                   reward_exp, reward_spirit_stones,
+		                   reward_physique, reward_willpower, reward_intelligence,
+		                   reward_perception, reward_charisma, reward_agility,
+		                   fatigue_cost, penalty_exp, penalty_spirit_stones,
+		                   daily_limit, total_limit, completed_count,
 		                   today_completion_count, last_completed_date,
-		                   remind_before, remind_interval, cost_mental, cost_physical, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		                   remind_before, remind_interval, sort_order, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?,
+		        ?, ?,
+		        ?, ?,
+		        ?, ?, ?,
+		        ?, ?, ?,
+		        ?, ?, ?,
+		        ?, ?, ?,
+		        ?, ?,
+		        ?, ?, ?, datetime('now'), datetime('now'))
 	`,
 		task.UserID, task.Title, task.Description, task.Category, task.Type, task.Status, task.Deadline,
-		task.RewardExp, task.RewardGold, task.RewardStrength, task.RewardIntelligence, task.RewardVitality, task.RewardSpirit,
-		task.PenaltyExp, task.PenaltyGold, task.DailyLimit, task.TotalLimit, task.CompletedCount,
+		task.PrimaryAttribute, task.Difficulty,
+		task.RewardExp, task.RewardSpiritStones,
+		task.RewardPhysique, task.RewardWillpower, task.RewardIntelligence,
+		task.RewardPerception, task.RewardCharisma, task.RewardAgility,
+		task.FatigueCost, task.PenaltyExp, task.PenaltySpiritStones,
+		task.DailyLimit, task.TotalLimit, task.CompletedCount,
 		task.TodayCompletionCount, task.LastCompletedDate,
-		task.RemindBefore, task.RemindInterval, task.CostMental, task.CostPhysical,
+		task.RemindBefore, task.RemindInterval, task.SortOrder,
 	)
 
 	if err != nil {
@@ -164,17 +191,27 @@ func (m *TaskModel) Update(task *Task) error {
 	_, err := m.db.Exec(`
 		UPDATE tasks
 		SET title = ?, description = ?, category = ?, type = ?, status = ?, deadline = ?,
-		    reward_exp = ?, reward_gold = ?, reward_strength = ?, reward_intelligence = ?, reward_vitality = ?, reward_spirit = ?,
-		    penalty_exp = ?, penalty_gold = ?, daily_limit = ?, total_limit = ?, completed_count = ?,
+		    primary_attribute = ?, difficulty = ?,
+		    reward_exp = ?, reward_spirit_stones = ?,
+		    reward_physique = ?, reward_willpower = ?, reward_intelligence = ?,
+		    reward_perception = ?, reward_charisma = ?, reward_agility = ?,
+		    fatigue_cost = ?, penalty_exp = ?, penalty_spirit_stones = ?,
+		    daily_limit = ?, total_limit = ?, completed_count = ?,
 		    today_completion_count = ?, last_completed_date = ?,
-		    remind_before = ?, remind_interval = ?, last_reminded_at = ?, cost_mental = ?, cost_physical = ?, updated_at = datetime('now')
+		    remind_before = ?, remind_interval = ?, last_reminded_at = ?,
+		    sort_order = ?, updated_at = datetime('now')
 		WHERE id = ?
 	`,
 		task.Title, task.Description, task.Category, task.Type, task.Status, task.Deadline,
-		task.RewardExp, task.RewardGold, task.RewardStrength, task.RewardIntelligence, task.RewardVitality, task.RewardSpirit,
-		task.PenaltyExp, task.PenaltyGold, task.DailyLimit, task.TotalLimit, task.CompletedCount,
+		task.PrimaryAttribute, task.Difficulty,
+		task.RewardExp, task.RewardSpiritStones,
+		task.RewardPhysique, task.RewardWillpower, task.RewardIntelligence,
+		task.RewardPerception, task.RewardCharisma, task.RewardAgility,
+		task.FatigueCost, task.PenaltyExp, task.PenaltySpiritStones,
+		task.DailyLimit, task.TotalLimit, task.CompletedCount,
 		task.TodayCompletionCount, task.LastCompletedDate,
-		task.RemindBefore, task.RemindInterval, task.LastRemindedAt, task.CostMental, task.CostPhysical, task.ID,
+		task.RemindBefore, task.RemindInterval, task.LastRemindedAt,
+		task.SortOrder, task.ID,
 	)
 
 	return err
@@ -204,12 +241,7 @@ type TaskWithUser struct {
 
 func (m *TaskModel) FindTasksNeedingReminder() ([]*TaskWithUser, error) {
 	rows, err := m.db.Query(`
-		SELECT t.id, t.user_id, t.title, t.description, t.category, t.type, t.status, t.deadline,
-		       t.reward_exp, t.reward_gold, t.reward_strength, t.reward_intelligence, t.reward_vitality, t.reward_spirit,
-		       t.penalty_exp, t.penalty_gold, t.daily_limit, t.total_limit, t.completed_count,
-		       t.today_completion_count, t.last_completed_date,
-		       t.remind_before, t.remind_interval, t.last_reminded_at, t.created_at, t.updated_at,
-		       t.cost_mental, t.cost_physical,
+		SELECT `+taskColumnsAliased+`,
 		       u.tg_chat_id, u.username
 		FROM tasks t
 		JOIN users u ON t.user_id = u.id
@@ -223,18 +255,22 @@ func (m *TaskModel) FindTasksNeedingReminder() ([]*TaskWithUser, error) {
 
 	var results []*TaskWithUser
 	for rows.Next() {
-		var task Task
 		var tgChatID int64
 		var username string
+		var task Task
 
 		err := rows.Scan(
 			&task.ID, &task.UserID, &task.Title, &task.Description, &task.Category, &task.Type,
-			&task.Status, &task.Deadline, &task.RewardExp, &task.RewardGold,
-			&task.RewardStrength, &task.RewardIntelligence, &task.RewardVitality, &task.RewardSpirit,
-			&task.PenaltyExp, &task.PenaltyGold, &task.DailyLimit, &task.TotalLimit, &task.CompletedCount,
+			&task.Status, &task.Deadline,
+			&task.PrimaryAttribute, &task.Difficulty,
+			&task.RewardExp, &task.RewardSpiritStones,
+			&task.RewardPhysique, &task.RewardWillpower, &task.RewardIntelligence,
+			&task.RewardPerception, &task.RewardCharisma, &task.RewardAgility,
+			&task.FatigueCost, &task.PenaltyExp, &task.PenaltySpiritStones,
+			&task.DailyLimit, &task.TotalLimit, &task.CompletedCount,
 			&task.TodayCompletionCount, &task.LastCompletedDate,
-			&task.RemindBefore, &task.RemindInterval, &task.LastRemindedAt, &task.CreatedAt, &task.UpdatedAt,
-			&task.CostMental, &task.CostPhysical,
+			&task.RemindBefore, &task.RemindInterval, &task.LastRemindedAt,
+			&task.SortOrder, &task.CreatedAt, &task.UpdatedAt,
 			&tgChatID, &username,
 		)
 		if err != nil {
@@ -285,21 +321,44 @@ func (m *TaskModel) ResetDailyCompletionCounts(today string) error {
 		return err
 	}
 
-	rows, _ := result.RowsAffected()
-	fmt.Printf("✅ Reset %d tasks\n", rows)
+	affected, _ := result.RowsAffected()
+	fmt.Printf("✅ Reset %d tasks\n", affected)
 
 	return nil
+}
+
+// ReorderTasks sets sort_order for a list of task IDs belonging to a user.
+func (m *TaskModel) ReorderTasks(userID int64, taskIDs []int64) error {
+	tx, err := m.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`UPDATE tasks SET sort_order = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for i, id := range taskIDs {
+		result, err := stmt.Exec(i+1, id, userID)
+		if err != nil {
+			return err
+		}
+		affected, _ := result.RowsAffected()
+		if affected == 0 {
+			return fmt.Errorf("task %d not found or unauthorized", id)
+		}
+	}
+
+	return tx.Commit()
 }
 
 // FindExpiredChallengeTasks finds all active challenge tasks that have passed their deadline
 func (m *TaskModel) FindExpiredChallengeTasks() ([]*Task, error) {
 	rows, err := m.db.Query(`
-		SELECT id, user_id, title, description, category, type, status, deadline,
-		       reward_exp, reward_gold, reward_strength, reward_intelligence, reward_vitality, reward_spirit,
-		       penalty_exp, penalty_gold, daily_limit, total_limit, completed_count,
-		       today_completion_count, last_completed_date,
-		       remind_before, remind_interval, last_reminded_at, created_at, updated_at,
-		       cost_mental, cost_physical
+		SELECT `+taskColumns+`
 		FROM tasks
 		WHERE type = 'challenge'
 		  AND status = 'active'
@@ -314,20 +373,11 @@ func (m *TaskModel) FindExpiredChallengeTasks() ([]*Task, error) {
 
 	var tasks []*Task
 	for rows.Next() {
-		var task Task
-		err := rows.Scan(
-			&task.ID, &task.UserID, &task.Title, &task.Description, &task.Category, &task.Type,
-			&task.Status, &task.Deadline, &task.RewardExp, &task.RewardGold,
-			&task.RewardStrength, &task.RewardIntelligence, &task.RewardVitality, &task.RewardSpirit,
-			&task.PenaltyExp, &task.PenaltyGold, &task.DailyLimit, &task.TotalLimit, &task.CompletedCount,
-			&task.TodayCompletionCount, &task.LastCompletedDate,
-			&task.RemindBefore, &task.RemindInterval, &task.LastRemindedAt, &task.CreatedAt, &task.UpdatedAt,
-			&task.CostMental, &task.CostPhysical,
-		)
+		task, err := scanTask(rows)
 		if err != nil {
 			return nil, err
 		}
-		tasks = append(tasks, &task)
+		tasks = append(tasks, task)
 	}
 
 	return tasks, rows.Err()

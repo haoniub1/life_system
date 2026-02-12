@@ -1,189 +1,98 @@
 <template>
   <div v-if="character" class="character-section">
-    <n-grid cols="1 s:2" responsive="screen" :x-gap="24" :y-gap="24">
-      <!-- Main Character Card -->
-      <n-grid-item>
-        <n-card class="character-main-card" :segmented="{ content: 'hard', footer: 'hard' }">
-          <div class="character-header">
-            <div class="title-section">
-              <h2 class="character-title">{{ character.title }}</h2>
-              <div class="level-badge">
-                <span class="level-number">LV.{{ character.level }}</span>
+    <!-- Main Info Card -->
+    <n-card class="character-main-card" :segmented="{ content: 'soft', footer: 'soft' }">
+      <div class="character-header">
+        <div class="title-section">
+          <h2 class="character-title">{{ character.title }}</h2>
+          <div v-if="highestRealmAttr" class="realm-badge">
+            <span class="realm-name">{{ highestRealmAttr.realmName }}{{ highestRealmAttr.subRealmName }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overdraft warning -->
+      <div v-if="character.overdraftPenalty > 0" class="overdraft-warning">
+        <span>&#x26A0;&#xFE0F; 透支惩罚: -{{ character.overdraftPenalty }}% 效率</span>
+      </div>
+
+      <!-- Spirit Stones Breakdown (detailed view in card) -->
+      <div class="spirit-stones-section">
+        <span class="spirit-label">灵石明细</span>
+        <div class="spirit-stones-grid">
+          <div v-if="spiritDisplay.supreme > 0" class="stone-item stone-supreme">
+            <span class="stone-icon">🔮</span>
+            <span class="stone-count">{{ spiritDisplay.supreme }}</span>
+            <span class="stone-type">极品</span>
+          </div>
+          <div v-if="spiritDisplay.high > 0" class="stone-item stone-high">
+            <span class="stone-icon">💠</span>
+            <span class="stone-count">{{ spiritDisplay.high }}</span>
+            <span class="stone-type">上品</span>
+          </div>
+          <div v-if="spiritDisplay.medium > 0" class="stone-item stone-medium">
+            <span class="stone-icon">💎</span>
+            <span class="stone-count">{{ spiritDisplay.medium }}</span>
+            <span class="stone-type">中品</span>
+          </div>
+          <div class="stone-item stone-low">
+            <span class="stone-icon">🪨</span>
+            <span class="stone-count">{{ spiritDisplay.low }}</span>
+            <span class="stone-type">下品</span>
+          </div>
+        </div>
+      </div>
+    </n-card>
+
+    <!-- 6 Attributes Grid -->
+    <div class="attributes-grid">
+      <div
+        v-for="attr in mainAttributes"
+        :key="attr.attrKey"
+        class="attribute-card"
+        :class="{ 'attr-bottleneck': attr.isBottleneck }"
+        :style="{ '--attr-color': attr.color }"
+      >
+        <div class="attr-top">
+          <span class="attr-emoji">{{ attr.emoji }}</span>
+          <span class="attr-name">{{ attr.displayName }}</span>
+          <n-popover trigger="click" placement="bottom">
+            <template #trigger>
+              <span class="attr-info-icon">&#x24D8;</span>
+            </template>
+            <div class="attr-info-popover">
+              <div class="attr-info-title">{{ attr.emoji }} {{ attr.displayName }}</div>
+              <p class="attr-info-desc">{{ getAttrDescription(attr.attrKey) }}</p>
+              <div class="attr-info-stats">
+                <div class="attr-info-row"><span>当前值</span><span>{{ attr.value.toFixed(1) }}</span></div>
+                <div class="attr-info-row"><span>境界</span><span>{{ attr.realmName }}·{{ attr.subRealmName }}</span></div>
+                <div class="attr-info-row"><span>属性上限</span><span>{{ attr.attrCap }}</span></div>
+                <div class="attr-info-row"><span>境界进度</span><span>{{ attr.progressPercent.toFixed(1) }}%</span></div>
+                <div v-if="attr.isBottleneck" class="attr-info-row warning"><span>状态</span><span>瓶颈中 - 需要突破</span></div>
+                <div v-if="attr.accumulationPool > 0" class="attr-info-row"><span>积累池</span><span>{{ attr.accumulationPool.toFixed(1) }}</span></div>
+                <div v-if="attr.realmExp > 0" class="attr-info-row"><span>境界经验</span><span>{{ attr.realmExp }}</span></div>
               </div>
             </div>
-          </div>
+          </n-popover>
+          <span class="attr-value">{{ attr.value.toFixed(0) }}</span>
+        </div>
+        <div class="attr-realm-badge">
+          {{ attr.realmName }}{{ attr.subRealmName }}
+        </div>
+        <div class="attr-progress-bar">
+          <div
+            class="attr-progress-fill"
+            :style="{ width: attr.progressPercent + '%', backgroundColor: attr.color }"
+          ></div>
+        </div>
+        <div class="attr-bottom">
+          <span class="attr-progress-text">{{ attr.progressPercent.toFixed(0) }}%</span>
+          <span v-if="attr.isBottleneck" class="bottleneck-badge">&#x1F6A7; 瓶颈</span>
+          <span v-if="attr.accumulationPool > 0" class="accumulation-badge">&#x1F4E6; 积累 {{ attr.accumulationPool.toFixed(1) }}</span>
+        </div>
+      </div>
+    </div>
 
-          <!-- HP Bar -->
-          <div class="stat-row">
-            <div class="stat-label">❤️ 生命值</div>
-            <div class="stat-bar-container">
-              <n-progress
-                type="line"
-                :percentage="(character.hp / character.maxHp) * 100"
-                :color="getHpColor()"
-                show-indicator
-              />
-            </div>
-            <div class="stat-value">{{ character.hp }}/{{ character.maxHp }}</div>
-          </div>
-
-          <!-- Experience Bar -->
-          <div class="stat-row">
-            <div class="stat-label">✨ 经验值</div>
-            <div class="stat-bar-container">
-              <n-progress
-                type="line"
-                :percentage="characterStore.expProgress"
-                color="#6366f1"
-                show-indicator
-              />
-            </div>
-            <div class="stat-value">{{ character.exp }}/{{ characterStore.expForNextLevel }}</div>
-          </div>
-
-          <!-- Mental Power Bar -->
-          <div class="stat-row">
-            <div class="stat-label">🧠 脑力</div>
-            <div class="stat-bar-container">
-              <n-progress
-                type="line"
-                :percentage="Math.max(0, character.mentalPower)"
-                :color="getPowerColor(character.mentalPower)"
-                show-indicator
-              />
-            </div>
-            <div class="stat-value">{{ character.mentalPower }}/100</div>
-          </div>
-
-          <!-- Physical Power Bar -->
-          <div class="stat-row">
-            <div class="stat-label">💪 体力</div>
-            <div class="stat-bar-container">
-              <n-progress
-                type="line"
-                :percentage="Math.max(0, character.physicalPower)"
-                :color="getPowerColor(character.physicalPower)"
-                show-indicator
-              />
-            </div>
-            <div class="stat-value">{{ character.physicalPower }}/100</div>
-          </div>
-
-          <!-- Sleep Aid Accumulation -->
-          <div class="sleep-aid-section">
-            <div class="sleep-aid-item">
-              <span class="sleep-aid-label">😴 心理助眠</span>
-              <span class="sleep-aid-value">{{ character.mentalSleepAid }}</span>
-            </div>
-            <div class="sleep-aid-item">
-              <span class="sleep-aid-label">🏃 身体助眠</span>
-              <span class="sleep-aid-value">{{ character.physicalSleepAid }}</span>
-            </div>
-          </div>
-
-          <!-- Gold -->
-          <div class="gold-section">
-            <span class="gold-label">🪙 金币</span>
-            <span class="gold-value">{{ character.gold }}</span>
-          </div>
-        </n-card>
-      </n-grid-item>
-
-      <!-- Attributes Card -->
-      <n-grid-item>
-        <n-card class="attributes-card" :segmented="{ content: 'hard' }">
-          <h3 class="attributes-title">属性</h3>
-          <n-space vertical :size="16">
-            <div class="attribute-item">
-              <div class="attribute-header">
-                <span class="attribute-label">💪 力量</span>
-                <span class="attribute-value">{{ character.strength }}</span>
-              </div>
-              <n-progress
-                type="line"
-                :percentage="(character.strength / 100) * 100"
-                color="#ef4444"
-              />
-            </div>
-
-            <div class="attribute-item">
-              <div class="attribute-header">
-                <span class="attribute-label">🧠 智力</span>
-                <span class="attribute-value">{{ character.intelligence }}</span>
-              </div>
-              <n-progress
-                type="line"
-                :percentage="(character.intelligence / 100) * 100"
-                color="#3b82f6"
-              />
-            </div>
-
-            <div class="attribute-item">
-              <div class="attribute-header">
-                <span class="attribute-label">❤️ 体力</span>
-                <span class="attribute-value">{{ character.vitality }}</span>
-              </div>
-              <n-progress
-                type="line"
-                :percentage="(character.vitality / 100) * 100"
-                color="#ec4899"
-              />
-            </div>
-
-            <div class="attribute-item">
-              <div class="attribute-header">
-                <span class="attribute-label">✨ 精神</span>
-                <span class="attribute-value">{{ character.spirit }}</span>
-              </div>
-              <n-progress
-                type="line"
-                :percentage="(character.spirit / 100) * 100"
-                color="#8b5cf6"
-              />
-            </div>
-          </n-space>
-        </n-card>
-      </n-grid-item>
-    </n-grid>
-
-    <!-- Stats Grid -->
-    <n-grid cols="2 s:4" responsive="screen" :x-gap="16" :y-gap="16" style="margin-top: 24px">
-      <n-grid-item>
-        <n-card class="stat-card" :segmented="{ content: 'hard' }">
-          <div class="stat-card-content">
-            <div class="stat-card-value">{{ character.level }}</div>
-            <div class="stat-card-label">等级</div>
-          </div>
-        </n-card>
-      </n-grid-item>
-
-      <n-grid-item>
-        <n-card class="stat-card" :segmented="{ content: 'hard' }">
-          <div class="stat-card-content">
-            <div class="stat-card-value">{{ character.gold }}</div>
-            <div class="stat-card-label">金币</div>
-          </div>
-        </n-card>
-      </n-grid-item>
-
-      <n-grid-item>
-        <n-card class="stat-card" :segmented="{ content: 'hard' }">
-          <div class="stat-card-content">
-            <div class="stat-card-value">{{ character.strength }}</div>
-            <div class="stat-card-label">力量</div>
-          </div>
-        </n-card>
-      </n-grid-item>
-
-      <n-grid-item>
-        <n-card class="stat-card" :segmented="{ content: 'hard' }">
-          <div class="stat-card-content">
-            <div class="stat-card-value">{{ character.intelligence }}</div>
-            <div class="stat-card-label">智力</div>
-          </div>
-        </n-card>
-      </n-grid-item>
-    </n-grid>
   </div>
   <div v-else class="empty-state">
     <n-spin />
@@ -193,26 +102,27 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NCard, NGrid, NGridItem, NSpace, NProgress, NSpin } from 'naive-ui'
+import { NCard, NPopover, NSpin } from 'naive-ui'
 import { useCharacterStore } from '@/stores/character'
+import { decomposeSpiritStones, ATTR_DISPLAY } from '@/utils/rpg'
 
 const characterStore = useCharacterStore()
 
 const character = computed(() => characterStore.character)
+const highestRealmAttr = computed(() => characterStore.highestRealm)
 
-const getHpColor = () => {
-  if (!character.value) return '#3b82f6'
-  const percentage = (character.value.hp / character.value.maxHp) * 100
-  if (percentage > 50) return '#10b981'
-  if (percentage > 25) return '#f59e0b'
-  return '#ef4444'
+const mainAttributes = computed(() => {
+  if (!character.value?.attributes) return []
+  return character.value.attributes.filter(a => a.attrKey !== 'luck')
+})
+
+function getAttrDescription(key: string): string {
+  return ATTR_DISPLAY[key]?.description || ''
 }
 
-const getPowerColor = (power: number) => {
-  if (power > 60) return '#10b981' // Green
-  if (power > 30) return '#f59e0b' // Orange
-  return '#ef4444' // Red
-}
+const spiritDisplay = computed(() => {
+  return decomposeSpiritStones(character.value?.spiritStones || 0)
+})
 </script>
 
 <style scoped>
@@ -221,26 +131,19 @@ const getPowerColor = (power: number) => {
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.character-main-card,
-.attributes-card,
-.stat-card {
+.character-main-card {
   background: linear-gradient(135deg, rgba(30, 30, 50, 0.8) 0%, rgba(20, 20, 40, 0.8) 100%);
   border: 1px solid rgba(255, 215, 0, 0.2);
   border-radius: 8px;
+  margin-bottom: 16px;
 }
 
 .character-header {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid rgba(255, 215, 0, 0.2);
 }
@@ -252,7 +155,7 @@ const getPowerColor = (power: number) => {
 }
 
 .character-title {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: bold;
   background: linear-gradient(135deg, #ffd700, #ffed4e, #d4af37);
   -webkit-background-clip: text;
@@ -261,156 +164,250 @@ const getPowerColor = (power: number) => {
   margin: 0;
 }
 
-.level-badge {
-  background: linear-gradient(135deg, #ffd700, #ffed4e);
-  padding: 8px 16px;
+.realm-badge {
+  background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+  padding: 6px 14px;
   border-radius: 20px;
   font-weight: bold;
-  color: #000;
-  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
-.level-number {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.stat-row {
-  display: grid;
-  grid-template-columns: 80px 1fr 100px;
-  align-items: center;
-  gap: 12px;
+.overdraft-warning {
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 13px;
   margin-bottom: 16px;
 }
 
-.stat-label {
-  font-weight: 600;
-  color: #d0d0e0;
-  white-space: nowrap;
-}
-
-.stat-bar-container {
-  min-width: 0;
-}
-
-:deep(.n-progress) {
-  --n-fill-color: #ffd700;
-}
-
-.stat-value {
-  text-align: right;
-  color: #a0a0b0;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.sleep-aid-section {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-  padding: 12px;
-  background: rgba(139, 92, 246, 0.1);
+.spirit-stones-section {
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
   border-radius: 8px;
   border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
-.sleep-aid-item {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.sleep-aid-label {
+.spirit-label {
   font-weight: 600;
-  color: #c4b5fd;
-  font-size: 13px;
-}
-
-.sleep-aid-value {
-  font-size: 16px;
-  font-weight: bold;
   color: #a78bfa;
+  font-size: 15px;
+  display: block;
+  margin-bottom: 10px;
 }
 
-.gold-section {
+.spirit-stones-grid {
   display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stone-item {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: rgba(255, 215, 0, 0.1);
+  padding: 8px 14px;
   border-radius: 8px;
-  margin-top: 16px;
+  min-width: 60px;
 }
 
-.gold-label {
-  font-weight: 600;
-  color: #ffd700;
-  font-size: 16px;
-}
-
-.gold-value {
+.stone-icon {
   font-size: 20px;
-  font-weight: bold;
-  color: #ffed4e;
-  margin-left: auto;
+  line-height: 1;
 }
 
-.attributes-title {
-  margin-bottom: 16px;
-  color: #d0d0e0;
+.stone-count {
   font-size: 18px;
   font-weight: bold;
 }
 
-.attribute-item {
+.stone-type {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.stone-supreme {
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  color: #ffd700;
+}
+
+.stone-high {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.stone-medium {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.stone-low {
+  background: rgba(156, 163, 175, 0.1);
+  border: 1px solid rgba(156, 163, 175, 0.2);
+  color: #9ca3af;
+}
+
+/* Attributes Grid */
+.attributes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.attribute-card {
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.8) 0%, rgba(20, 20, 40, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 215, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
-.attribute-header {
+.attribute-card:hover {
+  border-color: var(--attr-color, rgba(255, 215, 0, 0.3));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--attr-color, #ffd700) 20%, transparent);
+}
+
+.attr-bottleneck {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
+  animation: bottleneckPulse 2s ease-in-out infinite;
+}
+
+@keyframes bottleneckPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(239, 68, 68, 0.15); }
+  50% { box-shadow: 0 0 16px rgba(239, 68, 68, 0.3); }
+}
+
+.attr-top {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
-.attribute-label {
-  font-weight: 600;
-  color: #d0d0e0;
-}
-
-.attribute-value {
+.attr-emoji { font-size: 18px; }
+.attr-name { font-size: 13px; color: #d0d0e0; font-weight: 600; }
+.attr-value {
+  margin-left: auto;
+  font-size: 16px;
   font-weight: bold;
   color: #ffd700;
-  font-size: 14px;
 }
 
-.stat-card {
-  height: 100%;
-}
-
-.stat-card-content {
-  text-align: center;
-  padding: 12px 0;
-}
-
-.stat-card-value {
-  font-size: 28px;
-  font-weight: bold;
-  background: linear-gradient(135deg, #ffd700, #ffed4e);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.attr-realm-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
   margin-bottom: 8px;
 }
 
-.stat-card-label {
-  font-size: 12px;
+.attr-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.attr-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.attr-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.attr-progress-text {
+  font-size: 11px;
+  color: #808090;
+}
+
+.bottleneck-badge {
+  font-size: 10px;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.accumulation-badge {
+  font-size: 10px;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Attr Info Icon */
+.attr-info-icon {
+  font-size: 14px;
+  color: #606070;
+  cursor: pointer;
+  transition: color 0.2s;
+  line-height: 1;
+  user-select: none;
+}
+
+.attr-info-icon:hover {
   color: #a0a0b0;
+}
+
+.attr-info-popover {
+  max-width: 260px;
+}
+
+.attr-info-title {
+  font-size: 15px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.attr-info-desc {
+  font-size: 13px;
+  color: #999;
+  line-height: 1.5;
+  margin: 0 0 10px 0;
+}
+
+.attr-info-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attr-info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.attr-info-row span:first-child {
+  color: #888;
+}
+
+.attr-info-row span:last-child {
   font-weight: 600;
+}
+
+.attr-info-row.warning span:last-child {
+  color: #f87171;
 }
 
 .empty-state {
@@ -429,47 +426,30 @@ const getPowerColor = (power: number) => {
 }
 
 @media (max-width: 768px) {
-  .stat-row {
-    grid-template-columns: 60px 1fr 70px;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
+  .character-title { font-size: 18px; }
 
-  .stat-label {
-    font-size: 13px;
-  }
-
-  .character-title {
-    font-size: 20px;
-  }
-
-  .level-badge {
+  .realm-badge {
     padding: 4px 10px;
+    font-size: 11px;
   }
 
-  .level-number {
-    font-size: 13px;
+  .attributes-grid {
+    grid-template-columns: 1fr;
   }
 
-  .stat-card-value {
-    font-size: 20px;
+  .spirit-stones-grid {
+    gap: 6px;
   }
 
-  .sleep-aid-section {
-    flex-direction: column;
-    gap: 8px;
+  .stone-item {
+    padding: 6px 10px;
+    min-width: 50px;
   }
 
-  .gold-section {
-    padding: 10px;
-  }
-
-  .attribute-item {
-    padding: 8px;
-  }
+  .stone-count { font-size: 15px; }
 
   .character-header {
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     padding-bottom: 12px;
   }
 }

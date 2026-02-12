@@ -9,6 +9,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"life-system-backend/internal/logic"
 	"life-system-backend/internal/model"
+	"life-system-backend/internal/realm"
 	"life-system-backend/internal/svc"
 	"life-system-backend/pkg/bark"
 	"life-system-backend/pkg/telegram"
@@ -63,7 +64,6 @@ func (s *Scheduler) run() {
 			return
 		case <-ticker.C:
 			s.checkDailyReset()
-			s.checkDailyEnergyRestore()
 			s.checkAttributeDecay()
 			s.checkExpiredChallengeTasks()
 			s.checkTasks()
@@ -98,12 +98,11 @@ func (s *Scheduler) checkTasks() {
 		deadline := task.Deadline.Time
 		reminderTime := deadline.Add(-time.Duration(task.RemindBefore) * time.Minute)
 
-		// Skip expired tasks (handled by checkExpiredChallengeTasks for challenge tasks)
+		// Skip expired tasks
 		if now.After(deadline) {
 			continue
 		}
 
-		// Check if we should send reminder
 		shouldRemind := false
 
 		if !task.LastRemindedAt.Valid {
@@ -143,7 +142,6 @@ func (s *Scheduler) checkTasks() {
 
 			// Send Telegram notification
 			if s.bot != nil && chatID > 0 {
-				// Create inline keyboard for quick actions
 				completeBtn := tgbotapi.NewInlineKeyboardButtonData("✅ 完成", fmt.Sprintf("complete:%d", task.ID))
 				deleteBtn := tgbotapi.NewInlineKeyboardButtonData("🗑 删除", fmt.Sprintf("delete:%d", task.ID))
 				keyboard := tgbotapi.NewInlineKeyboardMarkup(
@@ -155,7 +153,7 @@ func (s *Scheduler) checkTasks() {
 				}
 			}
 
-			// Send Bark notification (alarm style - repeating sound)
+			// Send Bark notification
 			if s.barkClient != nil {
 				user, err := s.svcCtx.UserModel.FindByID(task.UserID)
 				if err == nil && user != nil && user.BarkKey != "" {
@@ -181,7 +179,6 @@ func (s *Scheduler) checkTasks() {
 func (s *Scheduler) checkDailyReset() {
 	today := time.Now().Format("2006-01-02")
 
-	// Only reset once per day
 	if s.lastResetDate == today {
 		return
 	}
@@ -194,20 +191,6 @@ func (s *Scheduler) checkDailyReset() {
 
 	s.lastResetDate = today
 	log.Printf("✅ Daily reset completed for %s", today)
-}
-
-// checkDailyEnergyRestore restores energy to max for all characters at the start of each day
-func (s *Scheduler) checkDailyEnergyRestore() {
-	today := time.Now().Format("2006-01-02")
-
-	// Only restore once per day (uses same lastResetDate as checkDailyReset)
-	if s.lastResetDate == today {
-		return
-	}
-
-	log.Printf("🔋 Daily energy restore is handled through sleep records")
-	// Energy is primarily restored through sleep records
-	// Players should record their sleep to restore energy
 }
 
 // checkExpiredChallengeTasks finds expired challenge tasks and applies penalties
@@ -236,12 +219,12 @@ func (s *Scheduler) checkExpiredChallengeTasks() {
 
 		log.Printf("✅ Task #%d '%s' marked as failed with penalties applied", task.ID, task.Title)
 
-		// Send notification to user if bot is available and user has Telegram bound
+		// Send notification
 		if s.bot != nil {
 			user, err := s.svcCtx.UserModel.FindByID(task.UserID)
 			if err == nil && user != nil && user.TgChatID > 0 {
-				message := fmt.Sprintf("❌ 挑战任务「%s」已超过截止时间，自动失败！\n惩罚：-%d经验 -%d金币",
-					task.Title, task.PenaltyExp, task.PenaltyGold)
+				message := fmt.Sprintf("❌ 挑战任务「%s」已超过截止时间，自动失败！\n惩罚：-%d灵石",
+					task.Title, task.PenaltySpiritStones)
 				if err := s.bot.SendMessage(user.TgChatID, message); err != nil {
 					log.Printf("Error sending failure notification: %v", err)
 				}
@@ -252,7 +235,6 @@ func (s *Scheduler) checkExpiredChallengeTasks() {
 
 // checkAttributeDecay applies attribute decay for inactive characters
 func (s *Scheduler) checkAttributeDecay() {
-	// Find characters inactive for 1+ days
 	characters, err := s.charModel.FindInactiveCharacters(1)
 	if err != nil {
 		log.Printf("Error finding inactive characters: %v", err)
@@ -264,11 +246,9 @@ func (s *Scheduler) checkAttributeDecay() {
 	}
 
 	today := time.Now().Format("2006-01-02")
-	const minAttribute = 5.0
 	const decayRatePerDay = 0.01 // 1% decay per day
 
 	for _, stats := range characters {
-		// Calculate days of inactivity
 		lastActivity, err := time.Parse("2006-01-02", stats.LastActivityDate)
 		if err != nil {
 			log.Printf("Error parsing last activity date for user %d: %v", stats.UserID, err)
@@ -279,72 +259,59 @@ func (s *Scheduler) checkAttributeDecay() {
 		daysInactive := int(now.Sub(lastActivity).Hours() / 24)
 
 		if daysInactive < 1 {
-			continue // Safety check
+			continue
 		}
 
-		// Apply decay (1% per day)
 		decayMultiplier := 1.0 - (float64(daysInactive) * decayRatePerDay)
 		if decayMultiplier < 0.5 {
-			decayMultiplier = 0.5 // Max 50% decay
+			decayMultiplier = 0.5
 		}
 
-		originalStats := *stats
+		// Load attributes and apply decay
+		attrs, err := s.charModel.FindAttributesByUserID(stats.UserID)
+		if err != nil {
+			log.Printf("Error finding attributes for user %d: %v", stats.UserID, err)
+			continue
+		}
 
-		stats.Strength = maxFloat(minAttribute, stats.Strength*decayMultiplier)
-		stats.Intelligence = maxFloat(minAttribute, stats.Intelligence*decayMultiplier)
-		stats.Vitality = maxFloat(minAttribute, stats.Vitality*decayMultiplier)
-		stats.Spirit = maxFloat(minAttribute, stats.Spirit*decayMultiplier)
+		for _, attr := range attrs {
+			if attr.AttrKey == "luck" {
+				continue
+			}
 
-		// Recalculate MaxHP based on new attributes
-		stats.MaxHP = 100 + int(stats.Strength*2) + int(stats.Vitality*3)
-		if stats.HP > stats.MaxHP {
-			stats.HP = stats.MaxHP
+			minVal := realm.AttrMin(attr.Realm)
+			newValue := attr.Value * decayMultiplier
+			if newValue < minVal {
+				newValue = minVal
+			}
+
+			if newValue != attr.Value {
+				attr.Value = newValue
+				if err := s.charModel.UpdateAttribute(attr); err != nil {
+					log.Printf("Error updating attribute %s for user %d: %v", attr.AttrKey, stats.UserID, err)
+				}
+			}
 		}
 
 		// Update last activity date to prevent repeated decay
 		stats.LastActivityDate = today
-
-		// Update character
 		if err := s.charModel.Update(stats); err != nil {
 			log.Printf("Error updating character stats for user %d: %v", stats.UserID, err)
 			continue
 		}
 
-		log.Printf("⚠️  Applied decay to user %d after %d days of inactivity: Str %.1f→%.1f, Int %.1f→%.1f, Vit %.1f→%.1f, Spr %.1f→%.1f",
-			stats.UserID, daysInactive,
-			originalStats.Strength, stats.Strength,
-			originalStats.Intelligence, stats.Intelligence,
-			originalStats.Vitality, stats.Vitality,
-			originalStats.Spirit, stats.Spirit)
+		log.Printf("⚠️  Applied attribute decay to user %d after %d days of inactivity", stats.UserID, daysInactive)
 
-		// Send notification to user if bot is available and user has Telegram bound
+		// Send notification
 		if s.bot != nil {
 			user, err := s.svcCtx.UserModel.FindByID(stats.UserID)
 			if err == nil && user != nil && user.TgChatID > 0 {
-				message := fmt.Sprintf("⚠️ 由于 %d 天未活动，你的属性发生了衰减！\n"+
-					"💪 力量: %.1f → %.1f\n"+
-					"🧠 智力: %.1f → %.1f\n"+
-					"❤️ 体力: %.1f → %.1f\n"+
-					"✨ 精神: %.1f → %.1f\n"+
-					"\n完成任务来恢复和提升属性吧！",
-					daysInactive,
-					originalStats.Strength, stats.Strength,
-					originalStats.Intelligence, stats.Intelligence,
-					originalStats.Vitality, stats.Vitality,
-					originalStats.Spirit, stats.Spirit)
-
+				message := fmt.Sprintf("⚠️ 由于 %d 天未活动，你的属性发生了衰减！\n完成任务来恢复和提升属性吧！",
+					daysInactive)
 				if err := s.bot.SendMessage(user.TgChatID, message); err != nil {
 					log.Printf("Error sending decay notification: %v", err)
 				}
 			}
 		}
 	}
-}
-
-// maxFloat returns the maximum of two float64 values
-func maxFloat(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
 }

@@ -10,8 +10,9 @@ type ShopItem struct {
 	UserID      int64
 	Name        string
 	Description string
-	Price       int    // Gold cost
-	ItemType    string // consumable, permanent
+	Price       int    // Spirit stone cost
+	SellPrice   int    // Spirit stone sell back price (for equipment)
+	ItemType    string // consumable, equipment
 	Effect      string // hp_restore, energy_restore, attribute_boost, etc.
 	EffectValue int    // Amount of effect
 	Icon        string // Emoji or icon identifier
@@ -50,7 +51,7 @@ func NewShopModel(db *sql.DB) *ShopModel {
 // GetItemsByUserID returns all shop items created by a specific user
 func (m *ShopModel) GetItemsByUserID(userID int64) ([]*ShopItem, error) {
 	rows, err := m.db.Query(`
-		SELECT id, user_id, name, description, price, item_type, effect, effect_value, icon, image, stock, created_at
+		SELECT id, user_id, name, description, price, COALESCE(sell_price, 0), item_type, effect, effect_value, icon, image, stock, created_at
 		FROM shop_items
 		WHERE user_id = ? AND stock != 0
 		ORDER BY created_at DESC
@@ -64,7 +65,7 @@ func (m *ShopModel) GetItemsByUserID(userID int64) ([]*ShopItem, error) {
 	for rows.Next() {
 		var item ShopItem
 		err := rows.Scan(
-			&item.ID, &item.UserID, &item.Name, &item.Description, &item.Price, &item.ItemType,
+			&item.ID, &item.UserID, &item.Name, &item.Description, &item.Price, &item.SellPrice, &item.ItemType,
 			&item.Effect, &item.EffectValue, &item.Icon, &item.Image, &item.Stock, &item.CreatedAt,
 		)
 		if err != nil {
@@ -80,11 +81,11 @@ func (m *ShopModel) GetItemsByUserID(userID int64) ([]*ShopItem, error) {
 func (m *ShopModel) GetItemByID(id int64) (*ShopItem, error) {
 	var item ShopItem
 	err := m.db.QueryRow(`
-		SELECT id, user_id, name, description, price, item_type, effect, effect_value, icon, image, stock, created_at
+		SELECT id, user_id, name, description, price, COALESCE(sell_price, 0), item_type, effect, effect_value, icon, image, stock, created_at
 		FROM shop_items
 		WHERE id = ?
 	`, id).Scan(
-		&item.ID, &item.UserID, &item.Name, &item.Description, &item.Price, &item.ItemType,
+		&item.ID, &item.UserID, &item.Name, &item.Description, &item.Price, &item.SellPrice, &item.ItemType,
 		&item.Effect, &item.EffectValue, &item.Icon, &item.Image, &item.Stock, &item.CreatedAt,
 	)
 
@@ -101,9 +102,9 @@ func (m *ShopModel) GetItemByID(id int64) (*ShopItem, error) {
 // CreateItem creates a new shop item
 func (m *ShopModel) CreateItem(item *ShopItem) (int64, error) {
 	result, err := m.db.Exec(`
-		INSERT INTO shop_items (user_id, name, description, price, item_type, effect, effect_value, icon, image, stock, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-	`, item.UserID, item.Name, item.Description, item.Price, item.ItemType,
+		INSERT INTO shop_items (user_id, name, description, price, sell_price, item_type, effect, effect_value, icon, image, stock, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+	`, item.UserID, item.Name, item.Description, item.Price, item.SellPrice, item.ItemType,
 		item.Effect, item.EffectValue, item.Icon, item.Image, item.Stock)
 
 	if err != nil {
@@ -117,9 +118,9 @@ func (m *ShopModel) CreateItem(item *ShopItem) (int64, error) {
 func (m *ShopModel) UpdateItem(item *ShopItem) error {
 	_, err := m.db.Exec(`
 		UPDATE shop_items
-		SET name = ?, description = ?, price = ?, item_type = ?, effect = ?, effect_value = ?, icon = ?, image = ?, stock = ?
+		SET name = ?, description = ?, price = ?, sell_price = ?, item_type = ?, effect = ?, effect_value = ?, icon = ?, image = ?, stock = ?
 		WHERE id = ? AND user_id = ?
-	`, item.Name, item.Description, item.Price, item.ItemType,
+	`, item.Name, item.Description, item.Price, item.SellPrice, item.ItemType,
 		item.Effect, item.EffectValue, item.Icon, item.Image, item.Stock,
 		item.ID, item.UserID)
 

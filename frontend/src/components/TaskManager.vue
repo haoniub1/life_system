@@ -26,73 +26,104 @@
     </div>
 
     <!-- Compact Tasks List -->
-    <div v-if="filteredTasks.length > 0" class="tasks-list">
-      <div
-        v-for="task in filteredTasks"
-        :key="task.id"
-        class="task-item"
-        :class="{ 
-          'task-completing': completingTaskId === task.id,
-          'task-completed': task.status === 'completed',
-          'task-failed': task.status === 'failed'
-        }"
-        @mousedown="task.status === 'active' && startComplete(task.id, $event)"
-        @mouseup="cancelComplete"
-        @mouseleave="cancelComplete"
-        @touchstart="task.status === 'active' && startComplete(task.id, $event)"
-        @touchend="cancelComplete"
-        @touchcancel="cancelComplete"
-      >
-        <!-- Progress overlay for long press -->
-        <div 
-          class="complete-progress" 
-          :style="{ width: (completingTaskId === task.id || completedTaskId === task.id) ? '100%' : '0%' }"
-        ></div>
-        
-        <div class="task-content">
-          <div class="task-main">
-            <span class="task-title">{{ task.title }}</span>
-            <div class="task-rewards">
-              <span v-if="task.rewardGold" class="reward-badge gold">🪙{{ task.rewardGold }}</span>
-              <span v-if="task.rewardExp" class="reward-badge exp">⭐{{ task.rewardExp }}</span>
-              <span v-if="task.rewardIntelligence" class="reward-badge attr">🧠+{{ task.rewardIntelligence }}</span>
-              <span v-if="task.rewardVitality" class="reward-badge attr">💪+{{ task.rewardVitality }}</span>
-            </div>
-          </div>
-          
-          <div class="task-meta">
-            <span class="task-type" :class="task.type">{{ getTaskTypeIcon(task.type) }}</span>
-            <span v-if="task.type === 'repeatable' && task.dailyLimit" class="task-count">
-              {{ task.todayCompletionCount }}/{{ task.dailyLimit }}
-            </span>
-            <span v-if="task.type === 'challenge' && task.deadline" class="task-deadline">
-              ⏱{{ formatTimeRemaining(task.deadline) }}
-            </span>
-          </div>
-        </div>
-
-        <!-- More actions menu -->
-        <n-dropdown
-          v-if="task.status === 'active'"
-          trigger="click"
-          :options="getTaskActions(task)"
-          @select="(key) => handleAction(key, task)"
+    <draggable
+      v-if="filteredTasks.length > 0"
+      v-model="taskStore.tasks"
+      item-key="id"
+      handle=".drag-handle"
+      ghost-class="task-ghost"
+      :animation="200"
+      class="tasks-list"
+      @end="onDragEnd"
+    >
+      <template #item="{ element: task }">
+        <div
+          class="task-item"
+          :class="{
+            'task-completing': completingTaskId === task.id,
+            'task-completed': task.status === 'completed',
+            'task-failed': task.status === 'failed'
+          }"
+          @mousedown="task.status === 'active' && startComplete(task.id, $event)"
+          @mouseup="cancelComplete"
+          @mouseleave="cancelComplete"
+          @touchstart="task.status === 'active' && startComplete(task.id, $event)"
+          @touchend="cancelComplete"
+          @touchcancel="cancelComplete"
         >
-          <div 
-            class="more-btn" 
-            @click.stop 
-            @mousedown.stop 
+          <!-- Progress overlay for long press -->
+          <div
+            class="complete-progress"
+            :style="{ width: (completingTaskId === task.id || completedTaskId === task.id) ? '100%' : '0%' }"
+          ></div>
+
+          <!-- Drag handle -->
+          <div
+            v-if="task.status === 'active'"
+            class="drag-handle"
+            @mousedown.stop
             @touchstart.stop
           >
-            <span>⋮</span>
+            <span>&#x2630;</span>
           </div>
-        </n-dropdown>
-        
-        <div v-else class="status-badge">
-          {{ task.status === 'completed' ? '✓' : '✗' }}
+
+          <div class="task-content">
+            <div class="task-main">
+              <div class="task-title-row">
+                <span class="task-title">{{ task.title }}</span>
+                <span v-if="task.primaryAttribute && ATTR_DISPLAY[task.primaryAttribute]" class="primary-attr-tag" :style="{ color: ATTR_DISPLAY[task.primaryAttribute].color, borderColor: ATTR_DISPLAY[task.primaryAttribute].color + '40', background: ATTR_DISPLAY[task.primaryAttribute].color + '15' }">
+                  {{ ATTR_DISPLAY[task.primaryAttribute].emoji }}{{ ATTR_DISPLAY[task.primaryAttribute].name }}
+                </span>
+                <span v-if="task.difficulty" class="difficulty-stars">
+                  <span v-for="i in task.difficulty" :key="i" class="star">&#x2B50;</span>
+                </span>
+              </div>
+              <div class="task-rewards">
+                <span v-if="task.rewardSpiritStones" class="reward-badge spirit">&#x1F48E;{{ task.rewardSpiritStones }}</span>
+                <span v-if="task.rewardExp" class="reward-badge exp">&#x2B50;{{ task.rewardExp }}</span>
+                <span v-if="task.rewardPhysique" class="reward-badge attr">&#x1F4AA;+{{ task.rewardPhysique }}</span>
+                <span v-if="task.rewardWillpower" class="reward-badge attr">&#x1F9E0;+{{ task.rewardWillpower }}</span>
+                <span v-if="task.rewardIntelligence" class="reward-badge attr">&#x1F4DA;+{{ task.rewardIntelligence }}</span>
+                <span v-if="task.rewardPerception" class="reward-badge attr">&#x1F441;+{{ task.rewardPerception }}</span>
+                <span v-if="task.rewardCharisma" class="reward-badge attr">&#x2728;+{{ task.rewardCharisma }}</span>
+                <span v-if="task.rewardAgility" class="reward-badge attr">&#x1F3C3;+{{ task.rewardAgility }}</span>
+              </div>
+            </div>
+
+            <div class="task-meta">
+              <span class="task-type" :class="task.type">{{ getTaskTypeIcon(task.type) }}</span>
+              <span v-if="task.type === 'repeatable' && task.dailyLimit" class="task-count">
+                {{ task.todayCompletionCount }}/{{ task.dailyLimit }}
+              </span>
+              <span v-if="task.type === 'challenge' && task.deadline" class="task-deadline">
+                &#x23F1;{{ formatTimeRemaining(task.deadline) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- More actions menu -->
+          <n-dropdown
+            v-if="task.status === 'active'"
+            trigger="click"
+            :options="getTaskActions(task)"
+            @select="(key: string) => handleAction(key, task)"
+          >
+            <div
+              class="more-btn"
+              @click.stop
+              @mousedown.stop
+              @touchstart.stop
+            >
+              <span>&#x22EE;</span>
+            </div>
+          </n-dropdown>
+
+          <div v-else class="status-badge">
+            {{ task.status === 'completed' ? '&#x2713;' : '&#x2717;' }}
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </draggable>
 
     <!-- Empty State -->
     <n-empty v-else description="暂无任务" style="margin-top: 40px" />
@@ -117,9 +148,10 @@ import {
   NEmpty,
   NDropdown
 } from 'naive-ui'
+import draggable from 'vuedraggable'
 import { useTaskStore } from '@/stores/task'
 import { useCharacterStore } from '@/stores/character'
-import { formatTimeRemaining } from '@/utils/rpg'
+import { formatTimeRemaining, ATTR_DISPLAY } from '@/utils/rpg'
 import TaskForm from '@/components/TaskForm.vue'
 import type { Task } from '@/types'
 
@@ -134,18 +166,16 @@ const editingTask = ref<Task | null>(null)
 
 // Long press completion
 const completingTaskId = ref<number | null>(null)
-const completedTaskId = ref<number | null>(null)  // 防止回退
+const completedTaskId = ref<number | null>(null)
 const completeTimer = ref<number | null>(null)
-const COMPLETE_DURATION = 2000 // 2 seconds
+const COMPLETE_DURATION = 2000
 
-// 完成音效 - 使用用户提供的音效
 const playCompleteSound = () => {
   const audio = new Audio('/complete.mp3')
   audio.volume = 0.7
   audio.play().catch(() => {})
 }
 
-// 撒花动画
 const createConfetti = () => {
   const colors = ['#ffd700', '#10b981', '#818cf8', '#f59e0b', '#ec4899']
   const container = document.createElement('div')
@@ -184,17 +214,17 @@ watch([typeFilter, statusFilter], () => {
 
 const getTaskTypeIcon = (type: string): string => {
   const icons: { [key: string]: string } = {
-    once: '📌',
-    repeatable: '🔄',
-    challenge: '⚔️'
+    once: '\u{1F4CC}',
+    repeatable: '\u{1F504}',
+    challenge: '\u2694\uFE0F'
   }
-  return icons[type] || '📋'
+  return icons[type] || '\u{1F4CB}'
 }
 
 const getTaskActions = (task: Task) => {
   return [
-    { label: '✏️ 编辑', key: 'edit' },
-    { label: '🗑️ 删除', key: 'delete' }
+    { label: '\u270F\uFE0F 编辑', key: 'edit' },
+    { label: '\u{1F5D1}\uFE0F 删除', key: 'delete' }
   ]
 }
 
@@ -215,20 +245,16 @@ const handleAction = async (key: string, task: Task) => {
 
 const startComplete = (taskId: number, event: MouseEvent | TouchEvent) => {
   event.preventDefault()
-  // 如果已经完成，不再触发
   if (completedTaskId.value === taskId) return
-  
+
   completingTaskId.value = taskId
-  
+
   completeTimer.value = window.setTimeout(async () => {
-    // 标记为已完成，防止进度条回退
     completedTaskId.value = taskId
-    
-    // 播放音效 + 撒花
+
     playCompleteSound()
     createConfetti()
-    
-    // 延迟一点再调用完成接口，让动画更明显
+
     setTimeout(async () => {
       await completeTask(taskId)
       completingTaskId.value = null
@@ -242,7 +268,6 @@ const cancelComplete = () => {
     clearTimeout(completeTimer.value)
     completeTimer.value = null
   }
-  // 立即回退，但用快速动画
   if (!completedTaskId.value) {
     completingTaskId.value = null
   }
@@ -261,13 +286,23 @@ const completeTask = async (id: number) => {
     if (result?.message) {
       message.success(result.message, { duration: 3000 })
     } else {
-      message.success('✅ 任务完成！')
+      message.success('\u2705 任务完成！')
     }
 
     setTimeout(() => fetchCurrentTasks(), 300)
   } catch (error: any) {
     const errorMsg = error?.response?.data?.message || error?.message || '完成失败'
     message.error(errorMsg)
+  }
+}
+
+const onDragEnd = async () => {
+  const taskIds = taskStore.tasks.map(t => t.id)
+  try {
+    await taskStore.reorderTasks(taskIds)
+  } catch (error: any) {
+    message.error('排序保存失败')
+    await fetchCurrentTasks()
   }
 }
 
@@ -371,11 +406,36 @@ onUnmounted(() => {
 
 .task-item:hover {
   border-color: rgba(255, 215, 0, 0.4);
-  transform: translateX(2px);
 }
 
-.task-item:active {
-  transform: scale(0.99);
+/* Drag handle */
+.drag-handle {
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #505060;
+  font-size: 14px;
+  cursor: grab;
+  flex-shrink: 0;
+  z-index: 2;
+  transition: color 0.2s;
+  touch-action: none;
+}
+
+.drag-handle:hover {
+  color: #ffd700;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Dragging ghost */
+.task-ghost {
+  opacity: 0.4;
+  border-color: #ffd700 !important;
+  background: rgba(255, 215, 0, 0.1) !important;
 }
 
 .task-completed {
@@ -396,7 +456,7 @@ onUnmounted(() => {
   top: 0;
   height: 100%;
   background: linear-gradient(90deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.5) 100%);
-  transition: width 1s ease-out;  /* 回退：1秒（快速） */
+  transition: width 1s ease-out;
   pointer-events: none;
   z-index: 0;
 }
@@ -407,7 +467,7 @@ onUnmounted(() => {
 
 .task-completing .complete-progress {
   width: 100% !important;
-  transition: width 2s linear;  /* 填充：2秒 */
+  transition: width 2s linear;
 }
 
 .task-content {
@@ -425,20 +485,44 @@ onUnmounted(() => {
   min-width: 0;
 }
 
+.task-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .task-title {
   font-size: 14px;
   font-weight: 500;
   color: #e0e0f0;
-  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.primary-attr-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.difficulty-stars {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.star {
+  font-size: 10px;
 }
 
 .task-rewards {
   display: flex;
   gap: 8px;
   margin-top: 4px;
+  flex-wrap: wrap;
 }
 
 .reward-badge {
@@ -448,9 +532,9 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.reward-badge.gold {
-  background: rgba(255, 193, 7, 0.2);
-  color: #ffc107;
+.reward-badge.spirit {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
 }
 
 .reward-badge.exp {
@@ -544,6 +628,11 @@ onUnmounted(() => {
 
   .task-item {
     padding: 10px 12px;
+  }
+
+  .drag-handle {
+    width: 20px;
+    font-size: 12px;
   }
 
   .task-title {

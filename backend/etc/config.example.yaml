@@ -10,5 +10,9 @@ Auth:
   Expire: 604800  # 7 days in seconds
 
 Telegram:
-  BotToken: "8209537630:AAE3VBM9ldiqEJR4_IGYWLjiOp9C4LYZu1o"
+  BotToken: "your-telegram-bot-token"
   Enabled: true
+
+RateLimit:
+  MaxLoginFailures: 10   # Per IP per day
+  MaxDailyRegisters: 10  # Per IP per day

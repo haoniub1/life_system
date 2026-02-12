@@ -63,7 +63,7 @@ func GetBarkStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		resp := types.BarkStatusResp{
-			Enabled: svcCtx.Config.Bark.Enabled && barkKey != "",
+			Enabled: barkKey != "",
 			BarkKey: maskedKey,
 		}
 

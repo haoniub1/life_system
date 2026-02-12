@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"life-system-backend/internal/model"
+	"life-system-backend/internal/realm"
 	"life-system-backend/internal/svc"
 	"life-system-backend/internal/types"
 )
@@ -35,6 +36,8 @@ func (l *ShopLogic) GetShopItems(ctx context.Context, userID int64) (*types.Shop
 			Name:        item.Name,
 			Description: item.Description,
 			Price:       item.Price,
+			SellPrice:   item.SellPrice,
+			ItemType:    item.ItemType,
 			Icon:        item.Icon,
 			Image:       item.Image,
 			Stock:       item.Stock,
@@ -52,11 +55,18 @@ func (l *ShopLogic) CreateShopItem(ctx context.Context, userID int64, req *types
 		return nil, fmt.Errorf("价格不能为负数")
 	}
 
+	itemType := req.ItemType
+	if itemType == "" {
+		itemType = "consumable"
+	}
+
 	item := &model.ShopItem{
 		UserID:      userID,
 		Name:        req.Name,
 		Description: req.Description,
 		Price:       req.Price,
+		SellPrice:   req.SellPrice,
+		ItemType:    itemType,
 		Icon:        req.Icon,
 		Image:       req.Image,
 		Stock:       req.Stock,
@@ -72,6 +82,8 @@ func (l *ShopLogic) CreateShopItem(ctx context.Context, userID int64, req *types
 		Name:        item.Name,
 		Description: item.Description,
 		Price:       item.Price,
+		SellPrice:   item.SellPrice,
+		ItemType:    item.ItemType,
 		Icon:        item.Icon,
 		Image:       item.Image,
 		Stock:       item.Stock,
@@ -99,6 +111,12 @@ func (l *ShopLogic) UpdateShopItem(ctx context.Context, userID int64, itemID int
 	if req.Price != nil {
 		existing.Price = *req.Price
 	}
+	if req.SellPrice != nil {
+		existing.SellPrice = *req.SellPrice
+	}
+	if req.ItemType != nil {
+		existing.ItemType = *req.ItemType
+	}
 	if req.Icon != nil {
 		existing.Icon = *req.Icon
 	}
@@ -118,6 +136,8 @@ func (l *ShopLogic) UpdateShopItem(ctx context.Context, userID int64, itemID int
 		Name:        existing.Name,
 		Description: existing.Description,
 		Price:       existing.Price,
+		SellPrice:   existing.SellPrice,
+		ItemType:    existing.ItemType,
 		Icon:        existing.Icon,
 		Image:       existing.Image,
 		Stock:       existing.Stock,
@@ -140,7 +160,6 @@ func (l *ShopLogic) DeleteShopItem(ctx context.Context, userID int64, itemID int
 }
 
 func (l *ShopLogic) PurchaseItem(ctx context.Context, userID int64, req *types.PurchaseItemReq) (*types.PurchaseResult, error) {
-	// Get item
 	item, err := l.svcCtx.ShopModel.GetItemByID(req.ItemID)
 	if err != nil {
 		return nil, err
@@ -149,15 +168,12 @@ func (l *ShopLogic) PurchaseItem(ctx context.Context, userID int64, req *types.P
 		return nil, fmt.Errorf("物品不存在")
 	}
 
-	// Check stock
 	if item.Stock != -1 && item.Stock < req.Quantity {
 		return nil, fmt.Errorf("库存不足")
 	}
 
-	// Calculate total price
 	totalPrice := item.Price * req.Quantity
 
-	// Get character stats
 	stats, err := l.svcCtx.CharacterModel.FindByUserID(userID)
 	if err != nil {
 		return nil, err
@@ -166,40 +182,36 @@ func (l *ShopLogic) PurchaseItem(ctx context.Context, userID int64, req *types.P
 		return nil, fmt.Errorf("角色不存在")
 	}
 
-	// Check if user has enough gold
-	if stats.Gold < totalPrice {
-		return nil, fmt.Errorf("金币不足！需要 %d 金币，当前只有 %d 金币", totalPrice, stats.Gold)
+	// Check if user has enough spirit stones
+	if stats.SpiritStones < totalPrice {
+		return nil, fmt.Errorf("灵石不足！需要 %d 灵石，当前只有 %d 灵石", totalPrice, stats.SpiritStones)
 	}
 
-	// Deduct gold
-	stats.Gold -= totalPrice
+	// Deduct spirit stones
+	stats.SpiritStones -= totalPrice
 
-	// Update character
 	if err := l.svcCtx.CharacterModel.Update(stats); err != nil {
 		return nil, err
 	}
 
-	// Update item stock if not unlimited
 	if item.Stock != -1 {
 		if err := l.svcCtx.ShopModel.UpdateItemStock(item.ID, req.Quantity); err != nil {
 			return nil, err
 		}
 	}
 
-	// Add to inventory
 	if err := l.svcCtx.ShopModel.AddToInventory(userID, item.ID, req.Quantity); err != nil {
 		return nil, err
 	}
 
-	// Record purchase
 	if err := l.svcCtx.ShopModel.RecordPurchase(userID, item.ID, item.Name, req.Quantity, totalPrice); err != nil {
 		return nil, err
 	}
 
 	return &types.PurchaseResult{
-		Success:       true,
-		Message:       fmt.Sprintf("成功购买 %d 个「%s」", req.Quantity, item.Name),
-		RemainingGold: stats.Gold,
+		Success:              true,
+		Message:              fmt.Sprintf("成功购买 %d 个「%s」", req.Quantity, item.Name),
+		RemainingSpiritStones: stats.SpiritStones,
 	}, nil
 }
 
@@ -214,7 +226,6 @@ func (l *ShopLogic) GetInventory(ctx context.Context, userID int64) (*types.Inve
 	}
 
 	for _, invItem := range inventoryItems {
-		// Get item details
 		item, err := l.svcCtx.ShopModel.GetItemByID(invItem.ItemID)
 		if err != nil {
 			continue
@@ -228,6 +239,8 @@ func (l *ShopLogic) GetInventory(ctx context.Context, userID int64) (*types.Inve
 			ItemID:      invItem.ItemID,
 			Name:        item.Name,
 			Description: item.Description,
+			ItemType:    item.ItemType,
+			SellPrice:   item.SellPrice,
 			Icon:        item.Icon,
 			Image:       item.Image,
 			Quantity:    invItem.Quantity,
@@ -238,7 +251,6 @@ func (l *ShopLogic) GetInventory(ctx context.Context, userID int64) (*types.Inve
 }
 
 func (l *ShopLogic) UseItem(ctx context.Context, userID int64, req *types.UseItemReq) (*types.UseItemResult, error) {
-	// Get inventory item
 	invItem, err := l.svcCtx.ShopModel.GetInventoryItemByItemID(userID, req.ItemID)
 	if err != nil {
 		return nil, err
@@ -247,7 +259,6 @@ func (l *ShopLogic) UseItem(ctx context.Context, userID int64, req *types.UseIte
 		return nil, fmt.Errorf("物品不足")
 	}
 
-	// Get item details
 	item, err := l.svcCtx.ShopModel.GetItemByID(req.ItemID)
 	if err != nil {
 		return nil, err
@@ -256,7 +267,6 @@ func (l *ShopLogic) UseItem(ctx context.Context, userID int64, req *types.UseIte
 		return nil, fmt.Errorf("物品不存在")
 	}
 
-	// Get character stats
 	stats, err := l.svcCtx.CharacterModel.FindByUserID(userID)
 	if err != nil {
 		return nil, err
@@ -265,60 +275,121 @@ func (l *ShopLogic) UseItem(ctx context.Context, userID int64, req *types.UseIte
 		return nil, fmt.Errorf("角色不存在")
 	}
 
-	// Apply item effect
+	// Load attributes
+	attrs, err := l.svcCtx.CharacterModel.FindAttributesByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	attrMap := make(map[string]*model.CharacterAttribute)
+	for _, a := range attrs {
+		attrMap[a.AttrKey] = a
+	}
+
 	message := ""
 	switch item.Effect {
-	case "hp_restore":
-		stats.HP += item.EffectValue * req.Quantity
-		if stats.HP > stats.MaxHP {
-			stats.HP = stats.MaxHP
+	case "fatigue_restore":
+		stats.Fatigue -= item.EffectValue * req.Quantity
+		if stats.Fatigue < 0 {
+			stats.Fatigue = 0
 		}
-		message = fmt.Sprintf("恢复了 %d 点生命值", item.EffectValue*req.Quantity)
+		message = fmt.Sprintf("恢复了 %d 点精力（降低疲劳）", item.EffectValue*req.Quantity)
 
-	case "energy_restore":
-		stats.Energy += item.EffectValue * req.Quantity
-		if stats.Energy > stats.MaxEnergy {
-			stats.Energy = stats.MaxEnergy
+	case "physique_boost":
+		if attr, ok := attrMap["physique"]; ok {
+			gain := float64(item.EffectValue * req.Quantity)
+			result := realm.ProcessAttrGain(attr.Value, gain, attr.Realm, attr.RealmExp, attr.IsBottleneck, attr.AccumulationPool)
+			attr.Value = result.NewValue
+			attr.AccumulationPool = result.NewAccPool
+			attr.RealmExp = result.NewRealmExp
+			attr.IsBottleneck = result.NewIsBottleneck
+			if err := l.svcCtx.CharacterModel.UpdateAttribute(attr); err != nil {
+				return nil, err
+			}
 		}
-		message = fmt.Sprintf("恢复了 %d 点能量", item.EffectValue*req.Quantity)
+		message = fmt.Sprintf("体魄提升了 %d 点", item.EffectValue*req.Quantity)
 
-	case "strength_boost":
-		stats.Strength += float64(item.EffectValue * req.Quantity)
-		message = fmt.Sprintf("力量永久提升了 %d 点", item.EffectValue*req.Quantity)
+	case "willpower_boost":
+		if attr, ok := attrMap["willpower"]; ok {
+			gain := float64(item.EffectValue * req.Quantity)
+			result := realm.ProcessAttrGain(attr.Value, gain, attr.Realm, attr.RealmExp, attr.IsBottleneck, attr.AccumulationPool)
+			attr.Value = result.NewValue
+			attr.AccumulationPool = result.NewAccPool
+			attr.RealmExp = result.NewRealmExp
+			attr.IsBottleneck = result.NewIsBottleneck
+			if err := l.svcCtx.CharacterModel.UpdateAttribute(attr); err != nil {
+				return nil, err
+			}
+		}
+		message = fmt.Sprintf("意志提升了 %d 点", item.EffectValue*req.Quantity)
 
 	case "intelligence_boost":
-		stats.Intelligence += float64(item.EffectValue * req.Quantity)
-		message = fmt.Sprintf("智力永久提升了 %d 点", item.EffectValue*req.Quantity)
+		if attr, ok := attrMap["intelligence"]; ok {
+			gain := float64(item.EffectValue * req.Quantity)
+			result := realm.ProcessAttrGain(attr.Value, gain, attr.Realm, attr.RealmExp, attr.IsBottleneck, attr.AccumulationPool)
+			attr.Value = result.NewValue
+			attr.AccumulationPool = result.NewAccPool
+			attr.RealmExp = result.NewRealmExp
+			attr.IsBottleneck = result.NewIsBottleneck
+			if err := l.svcCtx.CharacterModel.UpdateAttribute(attr); err != nil {
+				return nil, err
+			}
+		}
+		message = fmt.Sprintf("智力提升了 %d 点", item.EffectValue*req.Quantity)
 
-	case "vitality_boost":
-		stats.Vitality += float64(item.EffectValue * req.Quantity)
-		message = fmt.Sprintf("体力永久提升了 %d 点", item.EffectValue*req.Quantity)
+	case "perception_boost":
+		if attr, ok := attrMap["perception"]; ok {
+			gain := float64(item.EffectValue * req.Quantity)
+			result := realm.ProcessAttrGain(attr.Value, gain, attr.Realm, attr.RealmExp, attr.IsBottleneck, attr.AccumulationPool)
+			attr.Value = result.NewValue
+			attr.AccumulationPool = result.NewAccPool
+			attr.RealmExp = result.NewRealmExp
+			attr.IsBottleneck = result.NewIsBottleneck
+			if err := l.svcCtx.CharacterModel.UpdateAttribute(attr); err != nil {
+				return nil, err
+			}
+		}
+		message = fmt.Sprintf("感知提升了 %d 点", item.EffectValue*req.Quantity)
 
-	case "spirit_boost":
-		stats.Spirit += float64(item.EffectValue * req.Quantity)
-		message = fmt.Sprintf("精神永久提升了 %d 点", item.EffectValue*req.Quantity)
+	case "charisma_boost":
+		if attr, ok := attrMap["charisma"]; ok {
+			gain := float64(item.EffectValue * req.Quantity)
+			result := realm.ProcessAttrGain(attr.Value, gain, attr.Realm, attr.RealmExp, attr.IsBottleneck, attr.AccumulationPool)
+			attr.Value = result.NewValue
+			attr.AccumulationPool = result.NewAccPool
+			attr.RealmExp = result.NewRealmExp
+			attr.IsBottleneck = result.NewIsBottleneck
+			if err := l.svcCtx.CharacterModel.UpdateAttribute(attr); err != nil {
+				return nil, err
+			}
+		}
+		message = fmt.Sprintf("魅力提升了 %d 点", item.EffectValue*req.Quantity)
 
-	case "full_restore":
-		stats.HP = stats.MaxHP
-		stats.Energy = stats.MaxEnergy
-		message = "完全恢复了生命值和能量"
+	case "agility_boost":
+		if attr, ok := attrMap["agility"]; ok {
+			gain := float64(item.EffectValue * req.Quantity)
+			result := realm.ProcessAttrGain(attr.Value, gain, attr.Realm, attr.RealmExp, attr.IsBottleneck, attr.AccumulationPool)
+			attr.Value = result.NewValue
+			attr.AccumulationPool = result.NewAccPool
+			attr.RealmExp = result.NewRealmExp
+			attr.IsBottleneck = result.NewIsBottleneck
+			if err := l.svcCtx.CharacterModel.UpdateAttribute(attr); err != nil {
+				return nil, err
+			}
+		}
+		message = fmt.Sprintf("敏捷提升了 %d 点", item.EffectValue*req.Quantity)
 
-	case "exp_gain":
-		stats.Exp += item.EffectValue * req.Quantity
-		CheckAndApplyLevelUp(stats)
-		message = fmt.Sprintf("获得了 %d 点经验值", item.EffectValue*req.Quantity)
+	case "spirit_stone_gain":
+		stats.SpiritStones += item.EffectValue * req.Quantity
+		message = fmt.Sprintf("获得了 %d 灵石", item.EffectValue*req.Quantity)
+
+	case "", "none":
+		message = fmt.Sprintf("已使用「%s」", item.Name)
 
 	default:
 		return nil, fmt.Errorf("未知的物品效果")
 	}
 
-	// Recalculate MaxHP if attributes changed
-	stats.MaxHP = 100 + int(stats.Strength*2) + int(stats.Vitality*3)
-	if stats.HP > stats.MaxHP {
-		stats.HP = stats.MaxHP
-	}
-
-	// Update character
+	// Update character stats
 	if err := l.svcCtx.CharacterModel.Update(stats); err != nil {
 		return nil, err
 	}
@@ -330,14 +401,66 @@ func (l *ShopLogic) UseItem(ctx context.Context, userID int64, req *types.UseIte
 		}
 	}
 
-	// Get character logic to return updated character
+	// Reload attributes for response
+	attrs, err = l.svcCtx.CharacterModel.FindAttributesByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
 	charLogic := NewCharacterLogic(l.svcCtx)
-	charResp := charLogic.statsToResp(stats)
+	charResp := charLogic.statsToResp(stats, attrs)
 
 	return &types.UseItemResult{
 		Success:   true,
 		Message:   message,
 		Character: *charResp,
+	}, nil
+}
+
+func (l *ShopLogic) SellItem(ctx context.Context, userID int64, req *types.SellItemReq) (*types.SellItemResult, error) {
+	invItem, err := l.svcCtx.ShopModel.GetInventoryItemByItemID(userID, req.ItemID)
+	if err != nil {
+		return nil, err
+	}
+	if invItem == nil || invItem.Quantity < req.Quantity {
+		return nil, fmt.Errorf("物品不足")
+	}
+
+	item, err := l.svcCtx.ShopModel.GetItemByID(req.ItemID)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil {
+		return nil, fmt.Errorf("物品不存在")
+	}
+
+	if item.SellPrice <= 0 {
+		return nil, fmt.Errorf("该物品不可出售")
+	}
+
+	totalGain := item.SellPrice * req.Quantity
+
+	stats, err := l.svcCtx.CharacterModel.FindByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if stats == nil {
+		return nil, fmt.Errorf("角色不存在")
+	}
+
+	stats.SpiritStones += totalGain
+	if err := l.svcCtx.CharacterModel.Update(stats); err != nil {
+		return nil, err
+	}
+
+	if err := l.svcCtx.ShopModel.RemoveFromInventory(userID, req.ItemID, req.Quantity); err != nil {
+		return nil, err
+	}
+
+	return &types.SellItemResult{
+		Success:              true,
+		Message:              fmt.Sprintf("成功出售 %d 个「%s」，获得 %d 灵石", req.Quantity, item.Name, totalGain),
+		RemainingSpiritStones: stats.SpiritStones,
 	}, nil
 }
 

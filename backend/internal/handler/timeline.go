@@ -24,7 +24,7 @@ func GetTimelineHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		// 1. Fetch task logs with task details
 		taskLogs, err := svcCtx.DB.Query(`
-			SELECT tl.id, tl.action, tl.source, tl.created_at, t.title, t.reward_exp, t.reward_gold
+			SELECT tl.id, tl.action, tl.source, tl.created_at, t.title, t.reward_exp, t.reward_spirit_stones
 			FROM task_logs tl
 			LEFT JOIN tasks t ON tl.task_id = t.id
 			WHERE tl.user_id = ?
@@ -36,8 +36,8 @@ func GetTimelineHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			for taskLogs.Next() {
 				var id int64
 				var action, source, createdAt, title string
-				var rewardExp, rewardGold int
-				if err := taskLogs.Scan(&id, &action, &source, &createdAt, &title, &rewardExp, &rewardGold); err != nil {
+				var rewardExp, rewardSpiritStones int
+				if err := taskLogs.Scan(&id, &action, &source, &createdAt, &title, &rewardExp, &rewardSpiritStones); err != nil {
 					continue
 				}
 
@@ -64,10 +64,10 @@ func GetTimelineHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 					Timestamp:   createdAt,
 				}
 
-				if action == "complete" && (rewardExp > 0 || rewardGold > 0) {
+				if action == "complete" && (rewardExp > 0 || rewardSpiritStones > 0) {
 					event.Rewards = &types.TimelineRewards{
-						Exp:  rewardExp,
-						Gold: rewardGold,
+						Exp:          rewardExp,
+						SpiritStones: rewardSpiritStones,
 					}
 				}
 
@@ -110,10 +110,6 @@ func GetTimelineHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 					Timestamp:   createdAt,
 				}
 
-				if energyGained > 0 {
-					event.Rewards = &types.TimelineRewards{Energy: energyGained}
-				}
-
 				events = append(events, event)
 			}
 		}
@@ -140,9 +136,9 @@ func GetTimelineHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 					ID:          fmt.Sprintf("purchase_%d", id),
 					Type:        "purchase",
 					Title:       fmt.Sprintf("购买：%s", itemName),
-					Description: fmt.Sprintf("购买了 %d 个，花费 %d 金币", quantity, totalPrice),
+					Description: fmt.Sprintf("购买了 %d 个，花费 %d 灵石", quantity, totalPrice),
 					Timestamp:   createdAt,
-					Rewards:     &types.TimelineRewards{Gold: -totalPrice},
+					Rewards:     &types.TimelineRewards{SpiritStones: -totalPrice},
 				})
 			}
 		}
@@ -179,22 +175,20 @@ func GetTimelineHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		// Get character stats for totals
 		character, _ := svcCtx.CharacterModel.FindByUserID(userID)
-		totalExp := 0
-		totalGold := 0
+		totalSpiritStones := 0
 		if character != nil {
-			totalExp = character.Exp
-			totalGold = character.Gold
+			totalSpiritStones = character.SpiritStones
 		}
 
 		httpx.OkJson(w, types.CommonResp{
 			Code:    0,
 			Message: "success",
 			Data: types.TimelineResp{
-				Events:         events,
-				TasksCompleted: tasksCompleted,
-				TotalExp:       totalExp,
-				TotalGold:      totalGold,
-				SleepRecords:   sleepCount,
+				Events:            events,
+				TasksCompleted:    tasksCompleted,
+				TotalExp:          0,
+				TotalSpiritStones: totalSpiritStones,
+				SleepRecords:      sleepCount,
 			},
 		})
 	}

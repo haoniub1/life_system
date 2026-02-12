@@ -32,9 +32,14 @@ export const shopApi = {
     return request.get('/shop/inventory')
   },
 
-  // Use item
+  // Use item (consumable)
   useItem(data: { itemId: number; quantity: number }): Promise<ApiResponse<any>> {
     return request.post('/shop/use', data)
+  },
+
+  // Sell item (equipment)
+  sellItem(data: { itemId: number; quantity: number }): Promise<ApiResponse<any>> {
+    return request.post('/shop/sell', data)
   },
 
   // Get purchase history

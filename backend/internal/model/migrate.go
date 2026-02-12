@@ -47,25 +47,34 @@ func Migrate(db *sql.DB) error {
 			tg_username TEXT DEFAULT '',
 			tg_bind_code TEXT DEFAULT '',
 			tg_bind_expire DATETIME,
+			bark_key TEXT DEFAULT '',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS character_stats (
 			user_id INTEGER PRIMARY KEY,
-			level INTEGER DEFAULT 1,
-			exp INTEGER DEFAULT 0,
-			strength REAL DEFAULT 5.0,
-			intelligence REAL DEFAULT 5.0,
-			vitality REAL DEFAULT 5.0,
-			spirit REAL DEFAULT 5.0,
-			hp INTEGER DEFAULT 100,
-			max_hp INTEGER DEFAULT 100,
-			gold INTEGER DEFAULT 0,
-			title TEXT DEFAULT '新手🌱',
+			spirit_stones INTEGER DEFAULT 0,
+			fatigue INTEGER DEFAULT 0,
+			fatigue_cap INTEGER DEFAULT 100,
+			fatigue_level INTEGER DEFAULT 0,
+			overdraft_penalty REAL DEFAULT 0,
+			title TEXT DEFAULT '凡人',
 			last_activity_date TEXT DEFAULT (date('now')),
-			energy INTEGER DEFAULT 100,
-			max_energy INTEGER DEFAULT 100,
+			last_fatigue_reset TEXT DEFAULT '',
 			FOREIGN KEY(user_id) REFERENCES users(id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS character_attributes (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			attr_key TEXT NOT NULL,
+			value REAL DEFAULT 100,
+			realm INTEGER DEFAULT 0,
+			sub_realm INTEGER DEFAULT 0,
+			realm_exp INTEGER DEFAULT 0,
+			is_bottleneck INTEGER DEFAULT 0,
+			accumulation_pool REAL DEFAULT 0,
+			FOREIGN KEY(user_id) REFERENCES users(id),
+			UNIQUE(user_id, attr_key)
 		)`,
 		`CREATE TABLE IF NOT EXISTS tasks (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,14 +85,19 @@ func Migrate(db *sql.DB) error {
 			type TEXT NOT NULL DEFAULT 'once',
 			status TEXT NOT NULL DEFAULT 'active',
 			deadline DATETIME,
+			primary_attribute TEXT DEFAULT '',
+			difficulty INTEGER DEFAULT 1,
 			reward_exp INTEGER DEFAULT 0,
-			reward_gold INTEGER DEFAULT 0,
-			reward_strength REAL DEFAULT 0,
+			reward_spirit_stones INTEGER DEFAULT 0,
+			reward_physique REAL DEFAULT 0,
+			reward_willpower REAL DEFAULT 0,
 			reward_intelligence REAL DEFAULT 0,
-			reward_vitality REAL DEFAULT 0,
-			reward_spirit REAL DEFAULT 0,
+			reward_perception REAL DEFAULT 0,
+			reward_charisma REAL DEFAULT 0,
+			reward_agility REAL DEFAULT 0,
+			fatigue_cost INTEGER DEFAULT 10,
 			penalty_exp INTEGER DEFAULT 0,
-			penalty_gold INTEGER DEFAULT 0,
+			penalty_spirit_stones INTEGER DEFAULT 0,
 			daily_limit INTEGER DEFAULT 0,
 			total_limit INTEGER DEFAULT 0,
 			completed_count INTEGER DEFAULT 0,
@@ -153,7 +167,16 @@ func Migrate(db *sql.DB) error {
 		)`,
 	}
 
-	tableNames := []string{"users", "character_stats", "tasks", "task_logs", "sleep_records", "shop_items", "inventory", "purchase_history"}
+	// Add sell_price column to shop_items if not exists (migration)
+	migrations := []string{
+		`ALTER TABLE shop_items ADD COLUMN sell_price INTEGER DEFAULT 0`,
+		`ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0`,
+	}
+	for _, m := range migrations {
+		db.Exec(m) // Ignore errors (column may already exist)
+	}
+
+	tableNames := []string{"users", "character_stats", "character_attributes", "tasks", "task_logs", "sleep_records", "shop_items", "inventory", "purchase_history"}
 
 	for i, stmt := range statements {
 		fmt.Printf("  Creating table '%s'...\n", tableNames[i])
@@ -186,42 +209,5 @@ func Migrate(db *sql.DB) error {
 	}
 
 	fmt.Printf("✅ Migration completed successfully! Created %d tables\n", tableCount)
-
-	// Apply incremental schema updates
-	if err := applySchemaUpdates(db); err != nil {
-		return fmt.Errorf("schema update error: %w", err)
-	}
-
-	return nil
-}
-
-func applySchemaUpdates(db *sql.DB) error {
-	fmt.Println("🔧 Applying schema updates...")
-
-	// Each update is idempotent — uses ADD COLUMN which fails silently if column exists
-	updates := []struct {
-		desc string
-		sql  string
-	}{
-		{"character_stats.mental_power", "ALTER TABLE character_stats ADD COLUMN mental_power INTEGER DEFAULT 100"},
-		{"character_stats.physical_power", "ALTER TABLE character_stats ADD COLUMN physical_power INTEGER DEFAULT 100"},
-		{"character_stats.mental_sleep_aid", "ALTER TABLE character_stats ADD COLUMN mental_sleep_aid INTEGER DEFAULT 0"},
-		{"character_stats.physical_sleep_aid", "ALTER TABLE character_stats ADD COLUMN physical_sleep_aid INTEGER DEFAULT 0"},
-		{"character_stats.last_energy_reset", "ALTER TABLE character_stats ADD COLUMN last_energy_reset TEXT DEFAULT ''"},
-		{"tasks.cost_mental", "ALTER TABLE tasks ADD COLUMN cost_mental INTEGER DEFAULT 0"},
-		{"tasks.cost_physical", "ALTER TABLE tasks ADD COLUMN cost_physical INTEGER DEFAULT 0"},
-		{"users.bark_key", "ALTER TABLE users ADD COLUMN bark_key TEXT DEFAULT ''"},
-	}
-
-	for _, u := range updates {
-		if _, err := db.Exec(u.sql); err != nil {
-			// SQLite returns "duplicate column name" if column already exists — skip
-			fmt.Printf("  ⏭️  %s (already exists or skipped)\n", u.desc)
-		} else {
-			fmt.Printf("  ✅ Added %s\n", u.desc)
-		}
-	}
-
-	fmt.Println("✅ Schema updates complete")
 	return nil
 }

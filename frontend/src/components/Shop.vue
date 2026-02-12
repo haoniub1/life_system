@@ -3,11 +3,21 @@
     <n-tabs v-model:value="activeTab" type="segment" animated>
       <n-tab-pane name="shop" tab="🛒 商店">
         <div class="shop-content">
-          <!-- Gold Display -->
-          <div class="gold-display">
-            <span class="gold-icon">🪙</span>
-            <span class="gold-amount">{{ character?.gold || 0 }}</span>
-            <span class="gold-label">金币</span>
+          <!-- Spirit Stones Display with RMB toggle -->
+          <div class="spirit-display" @click="showRMB = !showRMB">
+            <template v-if="showRMB">
+              <span class="spirit-icon">💰</span>
+              <span class="spirit-amount">¥{{ character?.spiritStones || 0 }}</span>
+              <span class="spirit-label-text">RMB</span>
+            </template>
+            <template v-else>
+              <div class="spirit-stones-breakdown">
+                <span v-if="spiritDisplay.supreme > 0" class="stone-chip stone-supreme">🔮 {{ spiritDisplay.supreme }} 极品</span>
+                <span v-if="spiritDisplay.high > 0" class="stone-chip stone-high">💠 {{ spiritDisplay.high }} 上品</span>
+                <span v-if="spiritDisplay.medium > 0" class="stone-chip stone-medium">💎 {{ spiritDisplay.medium }} 中品</span>
+                <span class="stone-chip stone-low">🪨 {{ spiritDisplay.low }} 下品</span>
+              </div>
+            </template>
           </div>
 
           <!-- Create Button -->
@@ -34,19 +44,22 @@
                   <img v-if="item.image" :src="item.image" class="item-image" />
                   <div v-else class="item-icon">{{ item.icon || '🎁' }}</div>
                 </div>
+                <div class="item-type-badge" :class="item.itemType === 'equipment' ? 'type-equipment' : 'type-consumable'">
+                  {{ item.itemType === 'equipment' ? '装备' : '消耗品' }}
+                </div>
                 <h3 class="item-name">{{ item.name }}</h3>
                 <p class="item-description">{{ item.description }}</p>
 
                 <div class="item-footer">
                   <div class="item-price">
-                    <span class="price-icon">🪙</span>
-                    <span class="price-value">{{ item.price }}</span>
+                    <span class="price-icon">{{ showRMB ? '💰' : '💎' }}</span>
+                    <span class="price-value">{{ showRMB ? '¥' + item.price : item.price }}</span>
                   </div>
                   <n-space :size="4">
                     <n-button
                       type="primary"
                       size="small"
-                      :disabled="(character?.gold || 0) < item.price"
+                      :disabled="(character?.spiritStones || 0) < item.price"
                       :loading="purchasing === item.id"
                       @click="handlePurchase(item)"
                     >
@@ -91,6 +104,9 @@
                   <img v-if="item.image" :src="item.image" class="item-image" />
                   <div v-else class="item-icon">{{ item.icon || '🎁' }}</div>
                 </div>
+                <div class="item-type-badge" :class="item.itemType === 'equipment' ? 'type-equipment' : 'type-consumable'">
+                  {{ item.itemType === 'equipment' ? '装备' : '消耗品' }}
+                </div>
                 <h3 class="item-name">{{ item.name }}</h3>
                 <p class="item-description">{{ item.description }}</p>
 
@@ -98,6 +114,28 @@
                   <n-tag type="success" size="small">
                     数量: {{ item.quantity }}
                   </n-tag>
+                  <n-tag v-if="item.itemType === 'equipment' && item.sellPrice > 0" type="warning" size="small">
+                    售价: {{ showRMB ? '¥' + item.sellPrice : item.sellPrice + '灵石' }}
+                  </n-tag>
+                </div>
+
+                <div class="inventory-actions">
+                  <n-popconfirm v-if="item.itemType === 'consumable'" @positive-click="handleUseItem(item)">
+                    <template #trigger>
+                      <n-button type="info" size="small" block :loading="usingItem === item.itemId">
+                        使用
+                      </n-button>
+                    </template>
+                    确定使用「{{ item.name }}」吗？使用后将从背包中移除
+                  </n-popconfirm>
+                  <n-popconfirm v-if="item.itemType === 'equipment' && item.sellPrice > 0" @positive-click="handleSellItem(item)">
+                    <template #trigger>
+                      <n-button type="warning" size="small" block :loading="sellingItem === item.itemId">
+                        出售 ({{ showRMB ? '¥' + item.sellPrice : item.sellPrice + '灵石' }})
+                      </n-button>
+                    </template>
+                    确定出售「{{ item.name }}」吗？将获得 {{ item.sellPrice }} 灵石
+                  </n-popconfirm>
                 </div>
               </n-card>
             </n-grid-item>
@@ -129,7 +167,7 @@
                   <span class="history-quantity">x{{ record.quantity }}</span>
                 </div>
                 <div class="history-meta">
-                  <span class="history-price">🪙 {{ record.totalPrice }}</span>
+                  <span class="history-price">{{ showRMB ? '¥' + record.totalPrice : '💎 ' + record.totalPrice }}</span>
                   <span class="history-date">{{ formatDate(record.createdAt) }}</span>
                 </div>
               </div>
@@ -157,6 +195,15 @@
           <n-input v-model:value="itemForm.description" placeholder="输入商品描述" type="textarea" :rows="2" />
         </n-form-item>
 
+        <n-form-item label="商品类型">
+          <n-radio-group v-model:value="itemForm.itemType">
+            <n-space>
+              <n-radio value="consumable">消耗品</n-radio>
+              <n-radio value="equipment">装备</n-radio>
+            </n-space>
+          </n-radio-group>
+        </n-form-item>
+
         <n-form-item label="图标">
           <n-input v-model:value="itemForm.icon" placeholder="输入emoji，如 💊🥤📚" style="width: 120px" />
         </n-form-item>
@@ -180,8 +227,14 @@
           </div>
         </n-form-item>
 
-        <n-form-item label="价格">
-          <n-input-number v-model:value="itemForm.price" :min="0" placeholder="金币数" />
+        <n-form-item label="购买价格">
+          <n-input-number v-model:value="itemForm.price" :min="0" placeholder="灵石数" />
+          <span style="margin-left: 8px; color: #808090; font-size: 12px;">= ¥{{ itemForm.price }}</span>
+        </n-form-item>
+
+        <n-form-item v-if="itemForm.itemType === 'equipment'" label="出售价格">
+          <n-input-number v-model:value="itemForm.sellPrice" :min="0" placeholder="灵石数" />
+          <span style="margin-left: 8px; color: #808090; font-size: 12px;">= ¥{{ itemForm.sellPrice }}</span>
         </n-form-item>
 
         <n-form-item label="库存">
@@ -221,9 +274,12 @@ import {
   NFormItem,
   NInput,
   NInputNumber,
-  NPopconfirm
+  NPopconfirm,
+  NRadioGroup,
+  NRadio
 } from 'naive-ui'
 import { useCharacterStore } from '@/stores/character'
+import { decomposeSpiritStones } from '@/utils/rpg'
 import type { ShopItem, InventoryItem, PurchaseRecord } from '@/types'
 import { shopApi, uploadFile } from '@/api/shop'
 
@@ -231,11 +287,15 @@ const message = useMessage()
 const characterStore = useCharacterStore()
 
 const character = computed(() => characterStore.character)
+const spiritDisplay = computed(() => decomposeSpiritStones(character.value?.spiritStones || 0))
 const activeTab = ref('shop')
 const loading = ref(false)
 const loadingInventory = ref(false)
 const loadingHistory = ref(false)
 const purchasing = ref<number | null>(null)
+const usingItem = ref<number | null>(null)
+const sellingItem = ref<number | null>(null)
+const showRMB = ref(false)
 
 const shopItems = ref<ShopItem[]>([])
 const inventoryItems = ref<InventoryItem[]>([])
@@ -253,7 +313,9 @@ const itemForm = ref({
   description: '',
   icon: '',
   image: '',
+  itemType: 'consumable',
   price: 0,
+  sellPrice: 0,
   stock: -1
 })
 
@@ -272,7 +334,9 @@ const resetForm = () => {
     description: '',
     icon: '',
     image: '',
+    itemType: 'consumable',
     price: 0,
+    sellPrice: 0,
     stock: -1
   }
 }
@@ -284,7 +348,9 @@ const handleEdit = (item: ShopItem) => {
     description: item.description,
     icon: item.icon,
     image: item.image || '',
+    itemType: item.itemType || 'consumable',
     price: item.price,
+    sellPrice: item.sellPrice || 0,
     stock: item.stock
   }
   showCreateForm.value = true
@@ -418,6 +484,34 @@ const handlePurchase = async (item: ShopItem) => {
   }
 }
 
+const handleUseItem = async (item: InventoryItem) => {
+  try {
+    usingItem.value = item.itemId
+    await shopApi.useItem({ itemId: item.itemId, quantity: 1 })
+    message.success(`已使用「${item.name}」`)
+    await characterStore.fetchCharacter()
+    await fetchInventory()
+  } catch (error: any) {
+    message.error(error?.message || '使用失败')
+  } finally {
+    usingItem.value = null
+  }
+}
+
+const handleSellItem = async (item: InventoryItem) => {
+  try {
+    sellingItem.value = item.itemId
+    await shopApi.sellItem({ itemId: item.itemId, quantity: 1 })
+    message.success(`已出售「${item.name}」，获得 ${item.sellPrice} 灵石`)
+    await characterStore.fetchCharacter()
+    await fetchInventory()
+  } catch (error: any) {
+    message.error(error?.message || '出售失败')
+  } finally {
+    sellingItem.value = null
+  }
+}
+
 onMounted(async () => {
   await fetchShopItems()
   await fetchInventory()
@@ -442,21 +536,62 @@ onMounted(async () => {
   margin-bottom: 24px;
 }
 
-.gold-display {
+.spirit-display {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 16px;
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
-  border: 2px solid rgba(255, 215, 0, 0.3);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);
+  border: 2px solid rgba(139, 92, 246, 0.3);
   border-radius: 12px;
   margin-bottom: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
 }
 
-.gold-icon { font-size: 32px; }
-.gold-amount { font-size: 28px; font-weight: bold; color: #ffd700; }
-.gold-label { font-size: 14px; color: #d0d0e0; }
+.spirit-display:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%);
+}
+
+.spirit-icon { font-size: 32px; }
+.spirit-amount { font-size: 28px; font-weight: bold; color: #a78bfa; }
+.spirit-label-text { font-size: 14px; color: #d0d0e0; }
+
+.spirit-stones-breakdown {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stone-chip {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.stone-supreme {
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.15);
+}
+
+.stone-high {
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.15);
+}
+
+.stone-medium {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.stone-low {
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.1);
+}
 
 .action-bar {
   margin-bottom: 16px;
@@ -493,9 +628,44 @@ onMounted(async () => {
 }
 
 .item-icon { font-size: 48px; }
+
+.item-type-badge {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.type-consumable {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.type-equipment {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .item-name { font-size: 18px; font-weight: bold; color: #ffd700; margin: 0 0 8px 0; text-align: center; }
 .item-description { font-size: 14px; color: #a0a0b0; margin: 0 0 12px 0; text-align: center; min-height: 40px; }
-.item-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+.item-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.inventory-actions {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 215, 0, 0.15);
+}
 
 .item-footer {
   display: flex;
@@ -507,7 +677,7 @@ onMounted(async () => {
   gap: 8px;
 }
 
-.item-price { display: flex; align-items: center; gap: 4px; font-size: 18px; font-weight: bold; color: #ffd700; }
+.item-price { display: flex; align-items: center; gap: 4px; font-size: 18px; font-weight: bold; color: #a78bfa; }
 
 .loading-state,
 .empty-state {
@@ -521,13 +691,21 @@ onMounted(async () => {
 .history-name { font-weight: 600; color: #d0d0e0; }
 .history-quantity { color: #a0a0b0; font-size: 14px; }
 .history-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.history-price { color: #ffd700; font-weight: 600; }
+.history-price { color: #a78bfa; font-weight: 600; }
 .history-date { font-size: 12px; color: #808080; }
 
 /* Form modal styles */
 :deep(.n-modal) {
   background: linear-gradient(135deg, rgba(30, 30, 50, 0.95) 0%, rgba(20, 20, 40, 0.95) 100%);
   border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+:deep(.n-radio) {
+  color: #d0d0e0 !important;
+}
+
+:deep(.n-radio__label) {
+  color: #d0d0e0 !important;
 }
 
 .image-upload-area {
@@ -571,7 +749,7 @@ onMounted(async () => {
   .history-meta { align-items: flex-start; }
   .action-bar { justify-content: stretch; }
   .action-bar .n-button { width: 100%; }
-  .gold-amount { font-size: 20px; }
+  .spirit-amount { font-size: 20px; }
   .item-name { font-size: 15px; }
 }
 </style>

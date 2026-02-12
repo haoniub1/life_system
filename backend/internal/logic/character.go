@@ -3,10 +3,10 @@ package logic
 import (
 	"context"
 	"fmt"
-	"math"
 	"time"
 
 	"life-system-backend/internal/model"
+	"life-system-backend/internal/realm"
 	"life-system-backend/internal/svc"
 	"life-system-backend/internal/types"
 )
@@ -30,148 +30,101 @@ func (l *CharacterLogic) GetCharacter(ctx context.Context, userID int64) (*types
 		return nil, fmt.Errorf("character not found")
 	}
 
-	// Lazily trigger daily energy reset
-	if l.CheckAndResetDailyEnergy(stats) {
+	attrs, err := l.svcCtx.CharacterModel.FindAttributesByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Lazily trigger daily fatigue reset
+	if l.CheckAndResetDailyFatigue(stats) {
 		if err := l.svcCtx.CharacterModel.Update(stats); err != nil {
 			return nil, err
 		}
 	}
 
-	return l.statsToResp(stats), nil
+	return l.statsToResp(stats, attrs), nil
 }
 
-func (l *CharacterLogic) UpdateCharacter(ctx context.Context, userID int64, req *types.UpdateCharacterReq) (*types.CharacterResp, error) {
-	stats, err := l.svcCtx.CharacterModel.FindByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-	if stats == nil {
-		return nil, fmt.Errorf("character not found")
-	}
-
-	// Update fields if provided
-	if req.Strength != nil {
-		stats.Strength = *req.Strength
-	}
-	if req.Intelligence != nil {
-		stats.Intelligence = *req.Intelligence
-	}
-	if req.Vitality != nil {
-		stats.Vitality = *req.Vitality
-	}
-	if req.Spirit != nil {
-		stats.Spirit = *req.Spirit
-	}
-
-	// Recalculate derived stats
-	stats.MaxHP = 100 + int(stats.Strength*2) + int(stats.Vitality*3)
-	if stats.HP > stats.MaxHP {
-		stats.HP = stats.MaxHP
-	}
-
-	// Update in database
-	if err := l.svcCtx.CharacterModel.Update(stats); err != nil {
-		return nil, err
-	}
-
-	return l.statsToResp(stats), nil
-}
-
-func (l *CharacterLogic) statsToResp(stats *model.CharacterStats) *types.CharacterResp {
-	return &types.CharacterResp{
-		UserID:           stats.UserID,
-		Level:            stats.Level,
-		Exp:              stats.Exp,
-		Strength:         stats.Strength,
-		Intelligence:     stats.Intelligence,
-		Vitality:         stats.Vitality,
-		Spirit:           stats.Spirit,
-		HP:               stats.HP,
-		MaxHP:            stats.MaxHP,
-		Gold:             stats.Gold,
-		Title:            stats.Title,
-		LastActivityDate: stats.LastActivityDate,
-		Energy:           stats.Energy,
-		MaxEnergy:        stats.MaxEnergy,
-		MentalPower:      stats.MentalPower,
-		PhysicalPower:    stats.PhysicalPower,
-		MentalSleepAid:   stats.MentalSleepAid,
-		PhysicalSleepAid: stats.PhysicalSleepAid,
-	}
-}
-
-// CheckAndResetDailyEnergy resets energy based on sleep aid values when a new day starts.
+// CheckAndResetDailyFatigue resets fatigue when a new day starts.
 // Returns true if a reset was performed (caller should persist).
-func (l *CharacterLogic) CheckAndResetDailyEnergy(stats *model.CharacterStats) bool {
+func (l *CharacterLogic) CheckAndResetDailyFatigue(stats *model.CharacterStats) bool {
 	today := time.Now().Format("2006-01-02")
-	if stats.LastEnergyReset == today {
+	if stats.LastFatigueReset == today {
 		return false
 	}
 
-	// Calculate sleep quality from accumulated sleep aid
-	sleepQuality := 60.0 + float64(stats.MentalSleepAid)*0.2 + float64(stats.PhysicalSleepAid)*0.2
-	sleepQuality = math.Min(100, sleepQuality)
+	// Reset fatigue to 0
+	stats.Fatigue = 0
 
-	sq := int(sleepQuality)
-	stats.MentalPower = sq
-	stats.PhysicalPower = sq
+	// Apply overdraft penalty if any (reduce fatigue cap temporarily)
+	if stats.OverdraftPenalty > 0 {
+		stats.FatigueCap = realm.FatigueCapForLevel(stats.FatigueLevel) - int(stats.OverdraftPenalty)
+		if stats.FatigueCap < 10 {
+			stats.FatigueCap = 10
+		}
+		stats.OverdraftPenalty = 0
+	} else {
+		stats.FatigueCap = realm.FatigueCapForLevel(stats.FatigueLevel)
+	}
 
-	// Also sync legacy energy field
-	stats.Energy = sq
-	stats.MaxEnergy = 100
+	stats.LastFatigueReset = today
 
-	// Reset sleep aid accumulators
-	stats.MentalSleepAid = 0
-	stats.PhysicalSleepAid = 0
-
-	stats.LastEnergyReset = today
-
-	fmt.Printf("🔄 Daily energy reset for user %d: sleepQuality=%d, mentalPower=%d, physicalPower=%d\n",
-		stats.UserID, sq, stats.MentalPower, stats.PhysicalPower)
+	fmt.Printf("🔄 Daily fatigue reset for user %d: fatigueCap=%d\n",
+		stats.UserID, stats.FatigueCap)
 
 	return true
 }
 
-// Determine title based on level
-func DetermineTitleByLevel(level int) string {
-	switch {
-	case level >= 50:
-		return "生命大师🏆"
-	case level >= 40:
-		return "自律宗师👑"
-	case level >= 30:
-		return "优化专家⭐"
-	case level >= 20:
-		return "进化者🚀"
-	case level >= 15:
-		return "修行者🧘"
-	case level >= 10:
-		return "探索者🔍"
-	case level >= 5:
-		return "学徒📚"
-	default:
-		return "新手🌱"
+func (l *CharacterLogic) statsToResp(stats *model.CharacterStats, attrs []*model.CharacterAttribute) *types.CharacterResp {
+	resp := &types.CharacterResp{
+		UserID:           stats.UserID,
+		SpiritStones:     stats.SpiritStones,
+		Fatigue:          stats.Fatigue,
+		FatigueCap:       stats.FatigueCap,
+		FatigueLevel:     stats.FatigueLevel,
+		OverdraftPenalty: stats.OverdraftPenalty,
+		Title:            stats.Title,
+		LastActivityDate: stats.LastActivityDate,
+		Attributes:       make([]types.AttributeResp, 0, len(attrs)),
 	}
-}
 
-// Calculate experience needed for a level
-func ExpForLevel(level int) int {
-	// ExpForLevel(n) = 100 * 1.5^(n-1)
-	exp := 100.0
-	for i := 1; i < level; i++ {
-		exp *= 1.5
-	}
-	return int(exp)
-}
+	for _, attr := range attrs {
+		display, ok := realm.AttrDisplay[attr.AttrKey]
+		if !ok {
+			continue
+		}
 
-// Check if character should level up and do it
-func CheckAndApplyLevelUp(stats *model.CharacterStats) bool {
-	nextLevelExp := ExpForLevel(stats.Level + 1)
-	if stats.Exp >= nextLevelExp {
-		stats.Level++
-		stats.Title = DetermineTitleByLevel(stats.Level)
-		// Don't reset exp, it carries over
-		return true
+		cap := realm.AttrCap(attr.Realm)
+		minVal := realm.AttrMin(attr.Realm)
+		rangeVal := cap - minVal
+		var progressPercent float64
+		if rangeVal > 0 {
+			progressPercent = (attr.Value - minVal) / rangeVal * 100
+			if progressPercent > 100 {
+				progressPercent = 100
+			}
+			if progressPercent < 0 {
+				progressPercent = 0
+			}
+		}
+
+		resp.Attributes = append(resp.Attributes, types.AttributeResp{
+			AttrKey:          attr.AttrKey,
+			DisplayName:      display.Name,
+			Emoji:            display.Emoji,
+			Value:            attr.Value,
+			Realm:            attr.Realm,
+			RealmName:        realm.GetRealmName(attr.Realm),
+			SubRealm:         attr.SubRealm,
+			SubRealmName:     realm.GetSubRealmName(attr.SubRealm),
+			RealmExp:         attr.RealmExp,
+			IsBottleneck:     attr.IsBottleneck,
+			AccumulationPool: attr.AccumulationPool,
+			AttrCap:          cap,
+			ProgressPercent:  progressPercent,
+			Color:            display.Color,
+		})
 	}
-	return false
+
+	return resp
 }
