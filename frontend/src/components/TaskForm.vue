@@ -429,6 +429,27 @@ function buildCategoryString(): string {
     if (selected && selected.length > 0) {
       tags.push(...selected)
     }
+
+// Parse category string back to selectedCategories
+function parseCategoryString(categoryStr: string) {
+  // Reset all
+  for (const key in selectedCategories) {
+    selectedCategories[key as AttrKey] = []
+  }
+  
+  if (!categoryStr) return
+  
+  const tags = categoryStr.split(',').map(t => t.trim()).filter(t => t)
+  
+  for (const cat of categoryDefs) {
+    for (const tag of tags) {
+      const option = cat.options.find(opt => opt.value === tag)
+      if (option) {
+        selectedCategories[cat.key].push(tag)
+      }
+    }
+  }
+}
   }
   return tags.join(',')
 }
@@ -493,6 +514,8 @@ onMounted(() => {
       remindBefore: props.task.remindBefore || 30,
       remindInterval: props.task.remindInterval || 60
     }
+    // Parse category string to populate selectedCategories
+    parseCategoryString(props.task.category || '')
   } else {
     // Set defaults from difficulty 1
     handleDifficultyChange(1)
