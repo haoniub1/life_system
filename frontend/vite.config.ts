@@ -11,8 +11,8 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 8082,
-    allowedHosts: ['life.cyberniuma.xyz', 'localhost'],
+    port: 8085,
+    allowedHosts: ['life.cyberniuma.xyz', 'life-test.cyberniuma.xyz', 'localhost'],
     proxy: {
       '/api': {
         target: 'http://localhost:8084',
