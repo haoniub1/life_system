@@ -46,14 +46,6 @@
           :style="{ width: (completingTaskId === task.id || completedTaskId === task.id) ? '100%' : '0%' }"
         ></div>
 
-        <!-- Drag handle -->
-        <div
-          v-if="task.status === 'active'"
-          class="drag-handle sortable-handle"
-        >
-          <span>&#x2630;</span>
-        </div>
-
         <!-- Detail button -->
         <div
           v-if="task.status === 'active'"
@@ -250,15 +242,16 @@ const lastClickTime = ref<number>(0)
 const lastClickTaskId = ref<number | null>(null)
 const DOUBLE_CLICK_THRESHOLD = 300 // 300ms 内连续点击算双击
 
-// Initialize sortable with long-press drag
+// Initialize sortable with long-press drag (no handle, whole task draggable)
 useSortable(taskListRef, taskStore.tasks, {
   animation: 150,
-  handle: '.sortable-handle',
   ghostClass: 'task-ghost',
+  filter: '.detail-btn, .more-btn, .n-dropdown', // 排除这些按钮
+  preventOnFilter: false,
   forceFallback: true,
-  fallbackTolerance: 5,
-  touchStartThreshold: 3,
-  delay: 500, // 长按 500ms 启动拖拽
+  fallbackTolerance: 10,
+  touchStartThreshold: 5,
+  delay: 800, // 长按 800ms 启动拖拽（避免与双击冲突）
   delayOnTouchOnly: true, // 只在触摸时需要延迟
   onEnd: async () => {
     const taskIds = taskStore.tasks.map(t => t.id)
@@ -538,33 +531,6 @@ onUnmounted(() => {
   border-color: rgba(255, 215, 0, 0.4);
 }
 
-/* Drag handle */
-.drag-handle {
-  width: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #505060;
-  font-size: 14px;
-  cursor: grab;
-  flex-shrink: 0;
-  z-index: 2;
-  transition: color 0.2s;
-  touch-action: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.drag-handle:hover {
-  color: #ffd700;
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
 .detail-btn {
   flex-shrink: 0;
   width: 28px;
@@ -785,11 +751,6 @@ onUnmounted(() => {
 
   .task-item {
     padding: 10px 12px;
-  }
-
-  .drag-handle {
-    width: 20px;
-    font-size: 12px;
   }
 
   .task-title {
