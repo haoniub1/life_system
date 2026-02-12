@@ -33,6 +33,10 @@
       handle=".drag-handle"
       ghost-class="task-ghost"
       :animation="200"
+      :force-fallback="true"
+      :touch-start-threshold="5"
+      :fallback-tolerance="10"
+      :scroll-sensitivity="100"
       class="tasks-list"
       @end="onDragEnd"
     >
@@ -406,6 +410,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
 }
 
 .task-item {
@@ -445,6 +451,10 @@ onUnmounted(() => {
   z-index: 2;
   transition: color 0.2s;
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .drag-handle:hover {
