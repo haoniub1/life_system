@@ -37,12 +37,8 @@
           'task-completed': task.status === 'completed',
           'task-failed': task.status === 'failed'
         }"
-        @mousedown="task.status === 'active' && startComplete(task.id, $event)"
-        @mouseup="cancelComplete"
-        @mouseleave="cancelComplete"
-        @touchstart="task.status === 'active' && startComplete(task.id, $event)"
-        @touchend="cancelComplete"
-        @touchcancel="cancelComplete"
+        @dblclick="task.status === 'active' && startComplete(task.id)"
+        @click="task.status === 'active' && handleTaskClick(task.id)"
       >
         <!-- Progress overlay for long press -->
         <div
@@ -243,13 +239,18 @@ const showDetailModal = ref(false)
 const detailTask = ref<Task | null>(null)
 const taskListRef = ref<HTMLElement | null>(null)
 
-// Long press completion
+// Double-click completion
 const completingTaskId = ref<number | null>(null)
 const completedTaskId = ref<number | null>(null)
 const completeTimer = ref<number | null>(null)
 const COMPLETE_DURATION = 1000
 
-// Initialize sortable
+// Double-click detection
+const lastClickTime = ref<number>(0)
+const lastClickTaskId = ref<number | null>(null)
+const DOUBLE_CLICK_THRESHOLD = 300 // 300ms 内连续点击算双击
+
+// Initialize sortable with long-press drag
 useSortable(taskListRef, taskStore.tasks, {
   animation: 150,
   handle: '.sortable-handle',
@@ -257,8 +258,8 @@ useSortable(taskListRef, taskStore.tasks, {
   forceFallback: true,
   fallbackTolerance: 5,
   touchStartThreshold: 3,
-  delay: 0,
-  delayOnTouchOnly: false,
+  delay: 500, // 长按 500ms 启动拖拽
+  delayOnTouchOnly: true, // 只在触摸时需要延迟
   onEnd: async () => {
     const taskIds = taskStore.tasks.map(t => t.id)
     try {
@@ -337,6 +338,31 @@ const getTaskActions = (task: Task) => {
   ]
 }
 
+// Handle task click for double-click detection
+const handleTaskClick = (taskId: number) => {
+  const now = Date.now()
+  
+  // 如果正在完成倒计时，点击取消
+  if (completingTaskId.value === taskId) {
+    cancelComplete()
+    return
+  }
+  
+  // 检测双击
+  if (
+    lastClickTaskId.value === taskId &&
+    now - lastClickTime.value < DOUBLE_CLICK_THRESHOLD
+  ) {
+    // 双击 → 启动完成
+    startComplete(taskId)
+    lastClickTaskId.value = null // 重置
+  } else {
+    // 单击 → 记录
+    lastClickTaskId.value = taskId
+    lastClickTime.value = now
+  }
+}
+
 const handleAction = async (key: string, task: Task) => {
   if (key === 'edit') {
     editingTask.value = task
@@ -352,8 +378,7 @@ const handleAction = async (key: string, task: Task) => {
   }
 }
 
-const startComplete = (taskId: number, event: MouseEvent | TouchEvent) => {
-  event.preventDefault()
+const startComplete = (taskId: number) => {
   if (completedTaskId.value === taskId) return
 
   // Unlock audio on user gesture (mobile Safari requirement)
