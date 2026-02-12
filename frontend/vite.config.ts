@@ -15,7 +15,7 @@ export default defineConfig({
     allowedHosts: ['life.cyberniuma.xyz', 'localhost'],
     proxy: {
       '/api': {
-        target: 'http://localhost:8081',
+        target: 'http://localhost:8084',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -29,7 +29,7 @@ export default defineConfig({
         }
       },
       '/uploads': {
-        target: 'http://localhost:8081',
+        target: 'http://localhost:8084',
         changeOrigin: true
       }
     }

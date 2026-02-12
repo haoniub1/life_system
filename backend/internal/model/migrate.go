@@ -141,6 +141,7 @@ func Migrate(db *sql.DB) error {
 			icon TEXT DEFAULT '',
 			image TEXT DEFAULT '',
 			stock INTEGER DEFAULT -1,
+			sell_price INTEGER DEFAULT 0,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY(user_id) REFERENCES users(id)
 		)`,
