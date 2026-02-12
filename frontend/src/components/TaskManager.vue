@@ -34,9 +34,12 @@
       ghost-class="task-ghost"
       :animation="200"
       :force-fallback="true"
-      :touch-start-threshold="5"
-      :fallback-tolerance="10"
+      :touch-start-threshold="0"
+      :fallback-tolerance="5"
+      :delay="200"
+      :delay-on-touch-only="true"
       :scroll-sensitivity="100"
+      :prevent-on-filter="false"
       class="tasks-list"
       @end="onDragEnd"
     >
@@ -164,6 +167,7 @@ import {
   NDropdown
 } from 'naive-ui'
 import draggable from 'vuedraggable'
+import Sortable from 'sortablejs'
 import { useTaskStore } from '@/stores/task'
 import { useCharacterStore } from '@/stores/character'
 import { formatTimeRemaining, ATTR_DISPLAY } from '@/utils/rpg'
