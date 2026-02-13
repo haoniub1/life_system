@@ -3,13 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>人生RPG - Life System</title>
     <style>
       body {
         margin: 0;
         padding: 0;
         background-color: #1a1a1a;
+      }
+      
+      /* 禁用移动端双击缩放 */
+      * {
+        touch-action: manipulation;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
       }
     </style>
   </head>
