@@ -37,7 +37,6 @@
           'task-completed': task.status === 'completed',
           'task-failed': task.status === 'failed'
         }"
-        @dblclick="task.status === 'active' && startComplete(task.id)"
         @click="task.status === 'active' && handleTaskClick(task.id)"
       >
         <!-- Progress overlay for long press -->
@@ -235,25 +234,33 @@ const taskListRef = ref<HTMLElement | null>(null)
 const completingTaskId = ref<number | null>(null)
 const completedTaskId = ref<number | null>(null)
 const completeTimer = ref<number | null>(null)
-const COMPLETE_DURATION = 1000
+const COMPLETE_DURATION = 2000 // 2秒完成时间
 
 // Double-click detection
 const lastClickTime = ref<number>(0)
 const lastClickTaskId = ref<number | null>(null)
-const DOUBLE_CLICK_THRESHOLD = 300 // 300ms 内连续点击算双击
+const DOUBLE_CLICK_THRESHOLD = 400 // 400ms 内连续点击算双击
 
 // Initialize sortable with long-press drag (no handle, whole task draggable)
 useSortable(taskListRef, taskStore.tasks, {
   animation: 150,
   ghostClass: 'task-ghost',
+  chosenClass: 'task-chosen', // 选中时的样式
+  dragClass: 'task-dragging', // 拖动时的样式
   filter: '.detail-btn, .more-btn, .n-dropdown', // 排除这些按钮
   preventOnFilter: false,
   forceFallback: true,
-  fallbackTolerance: 10,
-  touchStartThreshold: 5,
-  delay: 800, // 长按 800ms 启动拖拽（避免与双击冲突）
+  fallbackClass: 'task-fallback',
+  fallbackTolerance: 3,
+  touchStartThreshold: 0,
+  delay: 500, // 长按 500ms 启动拖拽
   delayOnTouchOnly: true, // 只在触摸时需要延迟
+  disabled: false,
+  onStart: () => {
+    console.log('🎯 拖拽开始')
+  },
   onEnd: async () => {
+    console.log('🎯 拖拽结束')
     const taskIds = taskStore.tasks.map(t => t.id)
     try {
       await taskStore.reorderTasks(taskIds)
@@ -554,11 +561,27 @@ onUnmounted(() => {
 }
 
 
-/* Dragging ghost */
+/* Dragging states */
 .task-ghost {
   opacity: 0.4;
   border-color: #ffd700 !important;
   background: rgba(255, 215, 0, 0.1) !important;
+}
+
+.task-chosen {
+  border-color: rgba(255, 215, 0, 0.6) !important;
+  background: rgba(255, 215, 0, 0.05) !important;
+}
+
+.task-dragging {
+  opacity: 0.8;
+  transform: rotate(2deg);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.task-fallback {
+  opacity: 0.5;
+  background: rgba(255, 215, 0, 0.15) !important;
 }
 
 .task-completed {
@@ -590,7 +613,7 @@ onUnmounted(() => {
 
 .task-completing .complete-progress {
   width: 100% !important;
-  transition: width 1s linear;
+  transition: width 2s linear;
 }
 
 .task-content {
