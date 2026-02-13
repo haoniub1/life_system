@@ -217,7 +217,7 @@
         <div class="detail-row">
           <span class="detail-label">状态</span>
           <span class="detail-value" :style="{ color: detailTask.status === 'completed' ? '#10b981' : detailTask.status === 'failed' ? '#ef4444' : '#a0a0b0' }">
-            {{ { active: '进行中', completed: '已完成', failed: '已失败' }[detailTask.status] || detailTask.status }}
+            {{ { active: '进行中', completed: '已完成', failed: '已失败', deleted: '已删除' }[detailTask.status] || detailTask.status }}
           </span>
         </div>
 

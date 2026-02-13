@@ -1,6 +1,6 @@
 <template>
   <div class="telegram-section">
-    <n-card class="telegram-card" :segmented="{ content: 'hard' }">
+    <n-card class="telegram-card" :segmented="{ content: true }">
       <div v-if="!tgStatus?.bound" class="unbound-section">
         <div class="section-header">
           <h2 class="section-title">📱 Telegram 绑定</h2>

@@ -117,6 +117,7 @@ export interface Task {
   remindBefore: number
   remindInterval: number
   lastRemindedAt?: string | null
+  completedAt?: string | null
   createdAt: string
   updatedAt: string
 }

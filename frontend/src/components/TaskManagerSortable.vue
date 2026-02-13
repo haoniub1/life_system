@@ -187,7 +187,7 @@
         <div class="detail-row">
           <span class="detail-label">状态</span>
           <span class="detail-value" :style="{ color: detailTask.status === 'completed' ? '#10b981' : detailTask.status === 'failed' ? '#ef4444' : '#a0a0b0' }">
-            {{ { active: '进行中', completed: '已完成', failed: '已失败' }[detailTask.status] || detailTask.status }}
+            {{ { active: '进行中', completed: '已完成', failed: '已失败', deleted: '已删除' }[detailTask.status] || detailTask.status }}
           </span>
         </div>
 
@@ -203,7 +203,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
-import { useSortable } from '@vueuse/integrations/useSortable'
+import Sortable from 'sortablejs'
 import {
   NButton,
   NRadioGroup,
@@ -241,35 +241,8 @@ const lastClickTime = ref<number>(0)
 const lastClickTaskId = ref<number | null>(null)
 const DOUBLE_CLICK_THRESHOLD = 400 // 400ms 内连续点击算双击
 
-// Initialize sortable with long-press drag (no handle, whole task draggable)
-useSortable(taskListRef, taskStore.tasks, {
-  animation: 150,
-  ghostClass: 'task-ghost',
-  chosenClass: 'task-chosen', // 选中时的样式
-  dragClass: 'task-dragging', // 拖动时的样式
-  filter: '.detail-btn, .more-btn, .n-dropdown', // 排除这些按钮
-  preventOnFilter: false,
-  forceFallback: true,
-  fallbackClass: 'task-fallback',
-  fallbackTolerance: 3,
-  touchStartThreshold: 0,
-  delay: 500, // 长按 500ms 启动拖拽
-  delayOnTouchOnly: true, // 只在触摸时需要延迟
-  disabled: false,
-  onStart: () => {
-    console.log('🎯 拖拽开始')
-  },
-  onEnd: async () => {
-    console.log('🎯 拖拽结束')
-    const taskIds = taskStore.tasks.map(t => t.id)
-    try {
-      await taskStore.reorderTasks(taskIds)
-    } catch (error: any) {
-      message.error('排序保存失败')
-      await fetchCurrentTasks()
-    }
-  }
-})
+// Sortable instance
+let sortableInstance: Sortable | null = null
 
 // Pre-load audio for mobile compatibility
 const completeAudio = new Audio('/complete.mp3')
@@ -453,11 +426,45 @@ const handleSubmitTask = async (taskData: Partial<Task>) => {
 
 onMounted(async () => {
   await fetchCurrentTasks()
+  
+  // Initialize Sortable
+  if (taskListRef.value) {
+    sortableInstance = new Sortable(taskListRef.value, {
+      animation: 150,
+      ghostClass: 'task-ghost',
+      chosenClass: 'task-chosen',
+      dragClass: 'task-dragging',
+      filter: '.detail-btn, .more-btn, .n-dropdown',
+      preventOnFilter: false,
+      forceFallback: true,
+      fallbackClass: 'task-fallback',
+      fallbackTolerance: 3,
+      touchStartThreshold: 0,
+      delay: 500,
+      delayOnTouchOnly: true,
+      onStart: () => {
+        console.log('🎯 拖拽开始')
+      },
+      onEnd: async () => {
+        console.log('🎯 拖拽结束')
+        const taskIds = taskStore.tasks.map(t => t.id)
+        try {
+          await taskStore.reorderTasks(taskIds)
+        } catch (error: any) {
+          message.error('排序保存失败')
+          await fetchCurrentTasks()
+        }
+      }
+    })
+  }
 })
 
 onUnmounted(() => {
   if (completeTimer.value) {
     clearTimeout(completeTimer.value)
+  }
+  if (sortableInstance) {
+    sortableInstance.destroy()
   }
 })
 </script>
