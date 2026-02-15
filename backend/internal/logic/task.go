@@ -496,18 +496,42 @@ func (l *TaskLogic) QuickComplete(ctx context.Context, userID int64, req *types.
 		return nil, fmt.Errorf("invalid difficulty: %d (must be 0-5)", req.Difficulty)
 	}
 
-	// Validate categories
+	// Validate categories (can be either attribute keys or tags)
 	validAttrs := map[string]bool{
 		"physique": true, "willpower": true, "intelligence": true,
 		"perception": true, "charisma": true, "agility": true,
 	}
-	// Deduplicate categories
+	
+	// Attribute-to-default-tag mapping
+	attrToTag := map[string]string{
+		"physique":     "运动",
+		"willpower":    "专注",
+		"intelligence": "学习",
+		"perception":   "观察",
+		"charisma":     "社交",
+		"agility":      "灵活",
+	}
+	
+	// Deduplicate categories and collect both attrs and tags
 	seen := make(map[string]bool)
+	categoryTags := []string{}
+	
 	for _, cat := range req.Categories {
-		if !validAttrs[cat] {
-			return nil, fmt.Errorf("invalid category: %s (valid: physique, willpower, intelligence, perception, charisma, agility)", cat)
+		// If it's an attribute key, use its default tag
+		if validAttrs[cat] {
+			tag := attrToTag[cat]
+			if !seen[tag] {
+				categoryTags = append(categoryTags, tag)
+				seen[tag] = true
+			}
+			seen[cat] = true
+		} else {
+			// It's a custom tag, use directly
+			if !seen[cat] {
+				categoryTags = append(categoryTags, cat)
+				seen[cat] = true
+			}
 		}
-		seen[cat] = true
 	}
 
 	// Validate task type
@@ -556,8 +580,17 @@ func (l *TaskLogic) QuickComplete(ctx context.Context, userID int64, req *types.
 	}
 
 	// Create the task
+	categoryStr := ""
+	if len(categoryTags) > 0 {
+		categoryStr = categoryTags[0]
+		for i := 1; i < len(categoryTags); i++ {
+			categoryStr += "," + categoryTags[i]
+		}
+	}
+	
 	createReq := &types.CreateTaskReq{
 		Title:              title,
+		Category:           categoryStr,
 		Type:               taskType,
 		Difficulty:         req.Difficulty,
 		FatigueCost:        preset.Fatigue,
