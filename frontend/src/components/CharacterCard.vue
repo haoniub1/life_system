@@ -74,7 +74,10 @@
               </div>
             </div>
           </n-popover>
-          <span class="attr-value">{{ attr.value.toFixed(0) }}</span>
+          <span class="attr-value">
+            {{ attr.value.toFixed(1) }}
+            <span v-if="attr.todayGain > 0" class="attr-gain">+{{ attr.todayGain.toFixed(1) }}</span>
+          </span>
         </div>
         <div class="attr-realm-badge">
           {{ attr.realmName }}{{ attr.subRealmName }}
@@ -299,6 +302,16 @@ const spiritDisplay = computed(() => {
   font-size: 16px;
   font-weight: bold;
   color: #ffd700;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.attr-gain {
+  font-size: 12px;
+  font-weight: 600;
+  color: #10b981;
+  opacity: 0.9;
 }
 
 .attr-realm-badge {

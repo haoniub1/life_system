@@ -88,10 +88,18 @@ func (l *CharacterLogic) statsToResp(stats *model.CharacterStats, attrs []*model
 		Attributes:       make([]types.AttributeResp, 0, len(attrs)),
 	}
 
+	today := time.Now().Format("2006-01-02")
+	
 	for _, attr := range attrs {
 		display, ok := realm.AttrDisplay[attr.AttrKey]
 		if !ok {
 			continue
+		}
+
+		// Reset today_gain if not today
+		todayGain := attr.TodayGain
+		if attr.LastGainDate != today {
+			todayGain = 0
 		}
 
 		cap := realm.AttrCap(attr.Realm)
@@ -113,6 +121,7 @@ func (l *CharacterLogic) statsToResp(stats *model.CharacterStats, attrs []*model
 			DisplayName:      display.Name,
 			Emoji:            display.Emoji,
 			Value:            attr.Value,
+			TodayGain:        todayGain,
 			Realm:            attr.Realm,
 			RealmName:        realm.GetRealmName(attr.Realm),
 			SubRealm:         attr.SubRealm,

@@ -172,6 +172,8 @@ func Migrate(db *sql.DB) error {
 	migrations := []string{
 		`ALTER TABLE shop_items ADD COLUMN sell_price INTEGER DEFAULT 0`,
 		`ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0`,
+		`ALTER TABLE character_attributes ADD COLUMN today_gain REAL DEFAULT 0`,
+		`ALTER TABLE character_attributes ADD COLUMN last_gain_date TEXT DEFAULT ''`,
 	}
 	for _, m := range migrations {
 		db.Exec(m) // Ignore errors (column may already exist)

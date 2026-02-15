@@ -326,6 +326,13 @@ func (l *TaskLogic) CompleteTask(ctx context.Context, userID int64, taskID int64
 		attr.RealmExp = result.NewRealmExp
 		attr.IsBottleneck = result.NewIsBottleneck
 
+		// Update today_gain
+		if attr.LastGainDate != today {
+			attr.TodayGain = 0
+		}
+		attr.TodayGain += gain
+		attr.LastGainDate = today
+
 		if err := l.svcCtx.CharacterModel.UpdateAttribute(attr); err != nil {
 			return nil, err
 		}

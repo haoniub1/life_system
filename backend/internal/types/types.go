@@ -53,6 +53,7 @@ type AttributeResp struct {
 	DisplayName      string  `json:"displayName"`
 	Emoji            string  `json:"emoji"`
 	Value            float64 `json:"value"`
+	TodayGain        float64 `json:"todayGain"`
 	Realm            int     `json:"realm"`
 	RealmName        string  `json:"realmName"`
 	SubRealm         int     `json:"subRealm"`

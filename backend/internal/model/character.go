@@ -26,6 +26,8 @@ type CharacterAttribute struct {
 	RealmExp         int
 	IsBottleneck     bool
 	AccumulationPool float64
+	TodayGain        float64
+	LastGainDate     string
 }
 
 type CharacterModel struct {
@@ -105,7 +107,7 @@ func (m *CharacterModel) Update(stats *CharacterStats) error {
 
 func (m *CharacterModel) FindAttributesByUserID(userID int64) ([]*CharacterAttribute, error) {
 	rows, err := m.db.Query(`
-		SELECT id, user_id, attr_key, value, realm, sub_realm, realm_exp, is_bottleneck, accumulation_pool
+		SELECT id, user_id, attr_key, value, realm, sub_realm, realm_exp, is_bottleneck, accumulation_pool, today_gain, last_gain_date
 		FROM character_attributes WHERE user_id = ?
 	`, userID)
 	if err != nil {
@@ -120,6 +122,7 @@ func (m *CharacterModel) FindAttributesByUserID(userID int64) ([]*CharacterAttri
 			&attr.ID, &attr.UserID, &attr.AttrKey, &attr.Value,
 			&attr.Realm, &attr.SubRealm, &attr.RealmExp,
 			&attr.IsBottleneck, &attr.AccumulationPool,
+			&attr.TodayGain, &attr.LastGainDate,
 		)
 		if err != nil {
 			return nil, err
@@ -134,10 +137,12 @@ func (m *CharacterModel) UpdateAttribute(attr *CharacterAttribute) error {
 	_, err := m.db.Exec(`
 		UPDATE character_attributes
 		SET value = ?, realm = ?, sub_realm = ?, realm_exp = ?,
-		    is_bottleneck = ?, accumulation_pool = ?
+		    is_bottleneck = ?, accumulation_pool = ?,
+		    today_gain = ?, last_gain_date = ?
 		WHERE user_id = ? AND attr_key = ?
 	`, attr.Value, attr.Realm, attr.SubRealm, attr.RealmExp,
 		attr.IsBottleneck, attr.AccumulationPool,
+		attr.TodayGain, attr.LastGainDate,
 		attr.UserID, attr.AttrKey)
 
 	return err

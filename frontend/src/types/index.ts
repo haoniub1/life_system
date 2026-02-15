@@ -24,6 +24,7 @@ export interface CharacterAttribute {
   displayName: string
   emoji: string
   value: number
+  todayGain: number
   realm: number
   realmName: string
   subRealm: number
