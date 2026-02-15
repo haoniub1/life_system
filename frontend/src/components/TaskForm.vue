@@ -429,6 +429,9 @@ function buildCategoryString(): string {
     if (selected && selected.length > 0) {
       tags.push(...selected)
     }
+  }
+  return tags.join(',')
+}
 
 // Parse category string back to selectedCategories
 function parseCategoryString(categoryStr: string) {
@@ -449,9 +452,6 @@ function parseCategoryString(categoryStr: string) {
       }
     }
   }
-}
-  }
-  return tags.join(',')
 }
 
 // Apply template: set attribute bonuses based on selected categories + difficulty
