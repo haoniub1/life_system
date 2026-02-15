@@ -308,7 +308,16 @@ const submitting = ref(false)
 const uploadingImage = ref(false)
 const imageInput = ref<HTMLInputElement | null>(null)
 
-const itemForm = ref({
+const itemForm = ref<{
+  name: string
+  description: string
+  icon: string
+  image: string
+  itemType: 'consumable' | 'equipment'
+  price: number
+  sellPrice: number
+  stock: number
+}>({
   name: '',
   description: '',
   icon: '',

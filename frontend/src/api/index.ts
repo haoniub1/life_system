@@ -30,7 +30,7 @@ instance.interceptors.request.use(
 
 // Response interceptor: unwrap CommonResp and handle auth errors
 instance.interceptors.response.use(
-  (response) => {
+  (response): any => {
     console.log('📥 API Response:', response.config.url, response.status)
     console.log('  Data:', response.data)
     console.log('  Headers:', response.headers)
