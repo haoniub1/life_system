@@ -151,6 +151,13 @@
           <span class="detail-value">{{ ATTR_DISPLAY[detailTask.primaryAttribute].emoji }} {{ ATTR_DISPLAY[detailTask.primaryAttribute].name }}</span>
         </div>
 
+        <div v-if="detailTask.category" class="detail-row">
+          <span class="detail-label">分类</span>
+          <span class="detail-value category-tags">
+            <span v-for="tag in detailTask.category.split(',')" :key="tag" class="category-tag">{{ tag.trim() }}</span>
+          </span>
+        </div>
+
         <div class="detail-row">
           <span class="detail-label">奖励</span>
           <div class="detail-rewards">
@@ -864,5 +871,22 @@ onUnmounted(() => {
 
 :deep(.n-card__content) {
   padding: 20px;
+}
+
+.category-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.category-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: rgba(255, 215, 0, 0.15);
+  color: #ffd700;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 4px;
+  white-space: nowrap;
 }
 </style>
