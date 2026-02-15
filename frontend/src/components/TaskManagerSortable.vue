@@ -35,9 +35,10 @@
         :class="{
           'task-completing': completingTaskId === task.id,
           'task-completed': task.status === 'completed',
-          'task-failed': task.status === 'failed'
+          'task-failed': task.status === 'failed',
+          'task-limit-reached': isTaskLimitReached(task)
         }"
-        @click="task.status === 'active' && handleTaskClick(task.id)"
+        @click="task.status === 'active' && !isTaskLimitReached(task) && handleTaskClick(task.id)"
       >
         <!-- Progress overlay for long press -->
         <div
@@ -309,6 +310,24 @@ const getTaskActions = (task: Task) => {
     { label: '\u270F\uFE0F 编辑', key: 'edit' },
     { label: '\u{1F5D1}\uFE0F 删除', key: 'delete' }
   ]
+}
+
+// Check if task has reached daily or total limit
+const isTaskLimitReached = (task: any) => {
+  if (task.type !== 'repeatable') return false
+  if (task.status !== 'active') return false
+  
+  // 检查单日限制
+  if (task.dailyLimit > 0 && task.todayCompletionCount >= task.dailyLimit) {
+    return true
+  }
+  
+  // 检查总次数限制
+  if (task.totalLimit > 0 && task.completedCount >= task.totalLimit) {
+    return true
+  }
+  
+  return false
 }
 
 // Handle task click for double-click detection
@@ -600,6 +619,17 @@ onUnmounted(() => {
   opacity: 0.5;
   border-color: rgba(239, 68, 68, 0.3);
   cursor: default;
+}
+
+.task-limit-reached {
+  opacity: 0.4;
+  background: rgba(150, 150, 150, 0.1) !important;
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+}
+
+.task-limit-reached .task-content {
+  color: #888;
 }
 
 /* Long press progress animation */
