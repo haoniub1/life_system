@@ -60,6 +60,11 @@
       <!-- Category: 6 attribute dropdowns -->
       <div class="section-title">任务分类（选择相关标签，自动计算属性加成）</div>
 
+      <!-- Show original category string when editing -->
+      <n-form-item v-if="isEditing && props.task?.category" label="当前分类">
+        <n-input :value="props.task.category" readonly size="small" />
+      </n-form-item>
+
       <div class="category-grid">
         <div v-for="cat in categoryDefs" :key="cat.key" class="category-item">
           <div class="category-label" :style="{ color: cat.color }">{{ cat.emoji }} {{ cat.name }}</div>
@@ -446,9 +451,17 @@ function parseCategoryString(categoryStr: string) {
   
   for (const cat of categoryDefs) {
     for (const tag of tags) {
-      const option = cat.options.find(opt => opt.value === tag)
+      // Try exact match first
+      let option = cat.options.find(opt => opt.value === tag)
+      
+      // If no exact match, try fuzzy match (contains)
+      if (!option) {
+        option = cat.options.find(opt => opt.value.includes(tag) || tag.includes(opt.value))
+      }
+      
       if (option) {
-        selectedCategories[cat.key].push(tag)
+        // Always use the exact option.value (not the fuzzy tag)
+        selectedCategories[cat.key].push(option.value)
       }
     }
   }
