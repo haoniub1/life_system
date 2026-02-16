@@ -276,12 +276,8 @@ func (l *TaskLogic) CompleteTask(ctx context.Context, userID int64, taskID int64
 		return nil, fmt.Errorf("character not found")
 	}
 
-	// Consume fatigue (allow overdraft)
+	// Consume fatigue (allow overdraft, but no penalty)
 	stats.Fatigue += task.FatigueCost
-	if stats.Fatigue > stats.FatigueCap {
-		overdraft := float64(stats.Fatigue - stats.FatigueCap)
-		stats.OverdraftPenalty += overdraft
-	}
 
 	// Add spirit stones
 	stats.SpiritStones += task.RewardSpiritStones

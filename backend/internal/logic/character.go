@@ -56,16 +56,9 @@ func (l *CharacterLogic) CheckAndResetDailyFatigue(stats *model.CharacterStats) 
 	// Reset fatigue to 0
 	stats.Fatigue = 0
 
-	// Apply overdraft penalty if any (reduce fatigue cap temporarily)
-	if stats.OverdraftPenalty > 0 {
-		stats.FatigueCap = realm.FatigueCapForLevel(stats.FatigueLevel) - int(stats.OverdraftPenalty)
-		if stats.FatigueCap < 10 {
-			stats.FatigueCap = 10
-		}
-		stats.OverdraftPenalty = 0
-	} else {
-		stats.FatigueCap = realm.FatigueCapForLevel(stats.FatigueLevel)
-	}
+	// Reset fatigue cap (no penalty)
+	stats.FatigueCap = realm.FatigueCapForLevel(stats.FatigueLevel)
+	stats.OverdraftPenalty = 0
 
 	stats.LastFatigueReset = today
 
